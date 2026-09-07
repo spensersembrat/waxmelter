@@ -1,0 +1,132 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { AppShell } from "@/components/AppShell";
+import { queryFromWatch } from "@/lib/match";
+import { money, relativeTime } from "@/lib/format";
+import type { Watch, WatchComps } from "@/lib/types";
+
+type CompRow = {
+  watch: Watch;
+  comps: WatchComps | null;
+};
+
+export function CompsView() {
+  const [rows, setRows] = useState<CompRow[]>([]);
+  const [fetchingId, setFetchingId] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+
+  async function load() {
+    const response = await fetch("/api/comps");
+    const json = (await response.json()) as { rows?: CompRow[]; error?: string };
+    if (!response.ok) {
+      setMessage(json.error ?? "Could not load comps.");
+      setRows([]);
+      return;
+    }
+    setRows(json.rows ?? []);
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function fetchComps(watchId: string) {
+    setFetchingId(watchId);
+    setMessage("");
+    const response = await fetch("/api/comps", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ watchId }),
+    });
+    const json = (await response.json()) as { error?: string; status?: string };
+    setFetchingId(null);
+    if (!response.ok) {
+      setMessage(json.error ?? "Could not fetch 130point.");
+      return;
+    }
+    if (json.status === "unavailable") {
+      setMessage("130point blocked the request or returned no usable sold prices.");
+    }
+    await load();
+  }
+
+  return (
+    <AppShell>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="font-display text-2xl">130point</h2>
+          <p className="mt-1 text-sm text-mute">Sold comps used as the median for each watch.</p>
+        </div>
+      </div>
+      {message ? <p className="mt-3 text-sm text-mute">{message}</p> : null}
+
+      {rows.length === 0 ? (
+        <div className="mt-10 rounded-2xl border border-dashed border-line px-6 py-16 text-center">
+          <p className="font-display text-xl">No watches</p>
+          <p className="mt-2 text-sm text-mute">Add a watch first, then fetch comps here.</p>
+        </div>
+      ) : (
+        <ul className="mt-6 space-y-4">
+          {rows.map(({ watch, comps }) => (
+            <li key={watch.id} className="rounded-2xl border border-line bg-panel p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-ink">{watch.name}</p>
+                  <p className="mt-1 text-sm text-mute">{queryFromWatch(watch) || "No query"}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void fetchComps(watch.id)}
+                  disabled={fetchingId === watch.id}
+                  className="rounded-lg border border-line px-3 py-2 text-sm text-ink disabled:opacity-50"
+                >
+                  {fetchingId === watch.id ? "Fetching…" : "Fetch comps"}
+                </button>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <Stat label="Median" value={money(comps?.median)} />
+                <Stat label="Sales used" value={String(comps?.sale_count ?? 0)} />
+                <Stat label="Fetched" value={relativeTime(comps?.fetched_at ?? null)} />
+              </div>
+
+              {comps?.source_url ? (
+                <a
+                  href={comps.source_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-block text-sm text-wax"
+                >
+                  Open on 130point
+                </a>
+              ) : null}
+
+              {comps?.samples?.length ? (
+                <ul className="mt-4 divide-y divide-line overflow-hidden rounded-xl border border-line">
+                  {comps.samples.map((sample, index) => (
+                    <li key={`${sample.title}-${index}`} className="flex items-start justify-between gap-4 px-3 py-2 text-sm">
+                      <span className="text-ink">{sample.title}</span>
+                      <span className="shrink-0 tabular-nums text-mute">{money(sample.price)}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-4 text-sm text-mute">No sold samples stored yet.</p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </AppShell>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-panel-2 px-3 py-3">
+      <p className="text-xs uppercase tracking-wide text-mute">{label}</p>
+      <p className="mt-1 font-display text-xl text-ink">{value}</p>
+    </div>
+  );
+}

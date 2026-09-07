@@ -1,5 +1,7 @@
 import { randomUUID } from "crypto";
 import { MOCK_ALERTS, MOCK_WATCHES } from "./mock";
+import { queryFromWatch, point130SearchUrl } from "./match";
+import { fetchPoint130Comps } from "./point130";
 import { hasSupabase, supabaseAdmin } from "./supabase";
 import type { Alert, Watch, WatchComps, WatchInput } from "./types";
 
@@ -168,7 +170,54 @@ export async function getWatchComps(watchId: string): Promise<WatchComps | null>
   if (!hasSupabase()) return memory.comps.get(watchId) ?? null;
   const { data, error } = await supabaseAdmin().from("watch_comps").select("*").eq("watch_id", watchId).maybeSingle();
   if (error) throw error;
-  return (data as WatchComps | null) ?? null;
+  return data ? normalizeComps(data as WatchComps) : null;
+}
+
+export async function listWatchCompRows(): Promise<Array<{ watch: Watch; comps: WatchComps | null }>> {
+  const watches = await listWatches();
+  const rows = await Promise.all(
+    watches.map(async (watch) => ({
+      watch,
+      comps: await getWatchComps(watch.id),
+    })),
+  );
+  return rows;
+}
+
+export async function refreshWatchComps(watchId: string): Promise<{
+  watch: Watch;
+  comps: WatchComps;
+  status: "ok" | "unavailable";
+}> {
+  const watch = await getWatch(watchId);
+  if (!watch) throw new Error("Watch not found");
+  const query = queryFromWatch(watch);
+  if (!query) throw new Error("Watch has no search query.");
+
+  const fresh = await fetchPoint130Comps(watch, query);
+  const comps: WatchComps = {
+    watch_id: watch.id,
+    median: fresh.median,
+    sale_count: fresh.sale_count,
+    samples: fresh.samples,
+    source_url: fresh.source_url,
+    fetched_at: new Date().toISOString(),
+  };
+  await upsertWatchComps(comps);
+  const updated = await updateWatch(watch.id, {
+    last_median: fresh.median,
+    last_comp_count: fresh.sale_count,
+  });
+  return { watch: updated, comps, status: fresh.status };
+}
+
+function normalizeComps(row: WatchComps): WatchComps {
+  return {
+    ...row,
+    median: row.median == null ? null : Number(row.median),
+    sale_count: Number(row.sale_count ?? 0),
+    samples: Array.isArray(row.samples) ? row.samples : [],
+  };
 }
 
 export async function upsertWatchComps(comps: WatchComps): Promise<void> {
@@ -188,7 +237,23 @@ export async function seedMockData(): Promise<{ watches: number; alerts: number 
   if (!hasSupabase()) {
     memory.watches = structuredClone(MOCK_WATCHES);
     memory.alerts = structuredClone(MOCK_ALERTS);
-    memory.comps = new Map();
+    memory.comps = new Map(
+      MOCK_WATCHES.map((watch) => [
+        watch.id,
+        {
+          watch_id: watch.id,
+          median: watch.last_median,
+          sale_count: watch.last_comp_count ?? 0,
+          samples: MOCK_ALERTS.filter((alert) => alert.watch_id === watch.id).map((alert) => ({
+            title: alert.title,
+            price: alert.live_total,
+            soldAt: null,
+          })),
+          source_url: point130SearchUrl(queryFromWatch(watch)),
+          fetched_at: watch.last_scanned_at ?? new Date().toISOString(),
+        } satisfies WatchComps,
+      ]),
+    );
     return { watches: MOCK_WATCHES.length, alerts: MOCK_ALERTS.length };
   }
 
@@ -221,6 +286,25 @@ export async function seedMockData(): Promise<{ watches: number; alerts: number 
     });
     idMap.set(watch.id, created.id);
     watches += 1;
+  }
+
+  for (const watch of MOCK_WATCHES) {
+    const watchId = idMap.get(watch.id);
+    if (!watchId) continue;
+    const existingComps = await getWatchComps(watchId);
+    if (existingComps) continue;
+    await upsertWatchComps({
+      watch_id: watchId,
+      median: watch.last_median,
+      sale_count: watch.last_comp_count ?? 0,
+      samples: MOCK_ALERTS.filter((alert) => alert.watch_id === watch.id).map((alert) => ({
+        title: alert.title,
+        price: alert.live_total,
+        soldAt: null,
+      })),
+      source_url: point130SearchUrl(queryFromWatch(watch)),
+      fetched_at: watch.last_scanned_at ?? new Date().toISOString(),
+    });
   }
 
   for (const alert of MOCK_ALERTS) {

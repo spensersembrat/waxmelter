@@ -33,6 +33,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <NavLink href="/watches" active={pathname.startsWith("/watches")}>
             Watches
           </NavLink>
+          <NavLink href="/comps" active={pathname.startsWith("/comps")}>
+            130point
+          </NavLink>
           <button
             type="button"
             onClick={logout}
