@@ -1,0 +1,187 @@
+import { randomUUID } from "crypto";
+import { MOCK_ALERTS, MOCK_WATCHES } from "./mock";
+import { hasSupabase, supabaseAdmin } from "./supabase";
+import type { Alert, Watch, WatchComps, WatchInput } from "./types";
+
+type MemoryState = {
+  watches: Watch[];
+  alerts: Alert[];
+  comps: Map<string, WatchComps>;
+};
+
+const memory: MemoryState = {
+  watches: structuredClone(MOCK_WATCHES),
+  alerts: structuredClone(MOCK_ALERTS),
+  comps: new Map(),
+};
+
+function watchName(watch: Watch): string {
+  return watch.name;
+}
+
+export async function listWatches(): Promise<Watch[]> {
+  if (!hasSupabase()) {
+    return [...memory.watches].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
+
+  const { data, error } = await supabaseAdmin()
+    .from("watches")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Watch[];
+}
+
+export async function getWatch(id: string): Promise<Watch | null> {
+  if (!hasSupabase()) return memory.watches.find((w) => w.id === id) ?? null;
+  const { data, error } = await supabaseAdmin().from("watches").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return (data as Watch | null) ?? null;
+}
+
+export async function createWatch(input: WatchInput): Promise<Watch> {
+  const row: Watch = {
+    id: randomUUID(),
+    name: input.name,
+    must_include: input.must_include,
+    must_exclude: input.must_exclude,
+    year: input.year,
+    max_price: input.max_price,
+    alert_below_pct: input.alert_below_pct,
+    buying: input.buying,
+    enabled: input.enabled,
+    last_median: null,
+    last_comp_count: null,
+    last_scanned_at: null,
+    hit_count: 0,
+    created_at: new Date().toISOString(),
+  };
+
+  if (!hasSupabase()) {
+    memory.watches.unshift(row);
+    return row;
+  }
+
+  const { data, error } = await supabaseAdmin().from("watches").insert(row).select("*").single();
+  if (error) throw error;
+  return data as Watch;
+}
+
+export async function updateWatch(id: string, patch: Partial<WatchInput & Pick<Watch, "last_median" | "last_comp_count" | "last_scanned_at" | "hit_count">>): Promise<Watch> {
+  if (!hasSupabase()) {
+    const index = memory.watches.findIndex((w) => w.id === id);
+    if (index === -1) throw new Error("Watch not found");
+    memory.watches[index] = { ...memory.watches[index], ...patch };
+    return memory.watches[index];
+  }
+
+  const { data, error } = await supabaseAdmin().from("watches").update(patch).eq("id", id).select("*").single();
+  if (error) throw error;
+  return data as Watch;
+}
+
+export async function deleteWatch(id: string): Promise<void> {
+  if (!hasSupabase()) {
+    memory.watches = memory.watches.filter((w) => w.id !== id);
+    memory.alerts = memory.alerts.filter((a) => a.watch_id !== id);
+    memory.comps.delete(id);
+    return;
+  }
+
+  const db = supabaseAdmin();
+  await db.from("alerts").delete().eq("watch_id", id);
+  await db.from("watch_comps").delete().eq("watch_id", id);
+  const { error } = await db.from("watches").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function listAlerts(): Promise<Alert[]> {
+  if (!hasSupabase()) {
+    return [...memory.alerts].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
+
+  const db = supabaseAdmin();
+  const { data, error } = await db.from("alerts").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  const alerts = (data ?? []) as Omit<Alert, "watch_name">[];
+  const watches = await listWatches();
+  const names = new Map(watches.map((w) => [w.id, w.name]));
+  return alerts.map((alert) => ({
+    ...alert,
+    watch_name: names.get(alert.watch_id) ?? "Watch",
+  }));
+}
+
+export async function markAlertSeen(id: string, seen: boolean): Promise<Alert> {
+  if (!hasSupabase()) {
+    const alert = memory.alerts.find((a) => a.id === id);
+    if (!alert) throw new Error("Alert not found");
+    alert.seen = seen;
+    return alert;
+  }
+
+  const { data, error } = await supabaseAdmin().from("alerts").update({ seen }).eq("id", id).select("*").single();
+  if (error) throw error;
+  const watch = await getWatch(data.watch_id);
+  return { ...(data as Omit<Alert, "watch_name">), watch_name: watch?.name ?? "Watch" };
+}
+
+export async function findAlertByItemId(itemId: string): Promise<Alert | null> {
+  if (!hasSupabase()) return memory.alerts.find((a) => a.item_id === itemId) ?? null;
+  const { data, error } = await supabaseAdmin().from("alerts").select("*").eq("item_id", itemId).maybeSingle();
+  if (error) throw error;
+  return (data as Alert | null) ?? null;
+}
+
+export async function insertAlert(alert: Omit<Alert, "id" | "watch_name" | "created_at"> & { id?: string; created_at?: string }): Promise<Alert | null> {
+  const existing = await findAlertByItemId(alert.item_id);
+  if (existing) return null;
+
+  const watch = await getWatch(alert.watch_id);
+  const row: Alert = {
+    id: alert.id ?? randomUUID(),
+    watch_name: watch ? watchName(watch) : "Watch",
+    created_at: alert.created_at ?? new Date().toISOString(),
+    ...alert,
+  };
+
+  if (!hasSupabase()) {
+    memory.alerts.unshift(row);
+    if (watch) {
+      await updateWatch(watch.id, { hit_count: watch.hit_count + 1 });
+    }
+    return row;
+  }
+
+  const { watch_name: _ignored, ...dbRow } = row;
+  void _ignored;
+  const { data, error } = await supabaseAdmin().from("alerts").insert(dbRow).select("*").single();
+  if (error) {
+    if (error.code === "23505") return null;
+    throw error;
+  }
+  if (watch) await updateWatch(watch.id, { hit_count: watch.hit_count + 1 });
+  return { ...(data as Omit<Alert, "watch_name">), watch_name: watch?.name ?? "Watch" };
+}
+
+export async function getWatchComps(watchId: string): Promise<WatchComps | null> {
+  if (!hasSupabase()) return memory.comps.get(watchId) ?? null;
+  const { data, error } = await supabaseAdmin().from("watch_comps").select("*").eq("watch_id", watchId).maybeSingle();
+  if (error) throw error;
+  return (data as WatchComps | null) ?? null;
+}
+
+export async function upsertWatchComps(comps: WatchComps): Promise<void> {
+  if (!hasSupabase()) {
+    memory.comps.set(comps.watch_id, comps);
+    return;
+  }
+  const { error } = await supabaseAdmin().from("watch_comps").upsert(comps);
+  if (error) throw error;
+}
+
+export async function usingDatabase(): Promise<boolean> {
+  return hasSupabase();
+}
+
+export type { CompSample };
