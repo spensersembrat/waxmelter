@@ -11,24 +11,20 @@ type Filter = "all" | "unread" | "bin" | "auction";
 export function AlertsView() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [watches, setWatches] = useState<Watch[]>([]);
-  const [status, setStatus] = useState({ database: false, ebay: false });
   const [filter, setFilter] = useState<Filter>("all");
   const [watchId, setWatchId] = useState("all");
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState("");
 
   async function load() {
-    const [alertsRes, watchesRes, statusRes] = await Promise.all([
+    const [alertsRes, watchesRes] = await Promise.all([
       fetch("/api/alerts"),
       fetch("/api/watches"),
-      fetch("/api/status"),
     ]);
     const alertsJson = (await alertsRes.json()) as { alerts: Alert[] };
     const watchesJson = (await watchesRes.json()) as { watches: Watch[] };
-    const statusJson = (await statusRes.json()) as { database: boolean; ebay: boolean };
     setAlerts(alertsJson.alerts);
     setWatches(watchesJson.watches);
-    setStatus(statusJson);
   }
 
   useEffect(() => {
@@ -79,7 +75,7 @@ export function AlertsView() {
   const unread = alerts.filter((alert) => !alert.seen).length;
 
   return (
-    <AppShell database={status.database} ebay={status.ebay}>
+    <AppShell>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="font-display text-2xl">Alerts</h2>

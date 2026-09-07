@@ -1,19 +1,20 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-export function AppShell({
-  children,
-  database,
-  ebay,
-}: {
-  children: React.ReactNode;
-  database: boolean;
-  ebay: boolean;
-}) {
+export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [status, setStatus] = useState<{ database: boolean; ebay: boolean } | null>(null);
+
+  useEffect(() => {
+    void fetch("/api/status")
+      .then((response) => response.json())
+      .then((json: { database: boolean; ebay: boolean }) => setStatus(json))
+      .catch(() => setStatus({ database: false, ebay: false }));
+  }, []);
 
   async function logout() {
     await fetch("/api/logout", { method: "POST" });
@@ -41,9 +42,13 @@ export function AppShell({
           </button>
         </nav>
       </header>
-      <div className="mt-3 flex flex-wrap gap-2 text-xs text-mute">
-        <StatusDot ok={database} label={database ? "Supabase" : "Mock data"} />
-        <StatusDot ok={ebay} label={ebay ? "eBay connected" : "eBay pending"} />
+      <div className="mt-3 flex min-h-6 flex-wrap gap-2 text-xs text-mute">
+        {status ? (
+          <>
+            <StatusDot ok={status.database} label={status.database ? "Database" : "Mock data"} />
+            <StatusDot ok={status.ebay} label={status.ebay ? "eBay connected" : "eBay pending"} />
+          </>
+        ) : null}
       </div>
       <div className="mt-8">{children}</div>
     </div>

@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { ChipInput } from "@/components/ChipInput";
+import { FieldTip } from "@/components/FieldTip";
 import { queryFromWatch } from "@/lib/match";
 import { money, relativeTime } from "@/lib/format";
 import type { BuyingOption, Watch, WatchInput } from "@/lib/types";
@@ -20,17 +21,14 @@ const emptyForm: WatchInput = {
 
 export function WatchesView() {
   const [watches, setWatches] = useState<Watch[]>([]);
-  const [status, setStatus] = useState({ database: false, ebay: false });
   const [form, setForm] = useState<WatchInput>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   async function load() {
-    const [watchesRes, statusRes] = await Promise.all([fetch("/api/watches"), fetch("/api/status")]);
+    const watchesRes = await fetch("/api/watches");
     const watchesJson = (await watchesRes.json()) as { watches: Watch[] };
-    const statusJson = (await statusRes.json()) as { database: boolean; ebay: boolean };
     setWatches(watchesJson.watches);
-    setStatus(statusJson);
   }
 
   useEffect(() => {
@@ -105,7 +103,7 @@ export function WatchesView() {
   }
 
   return (
-    <AppShell database={status.database} ebay={status.ebay}>
+    <AppShell>
       <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
         <section>
           <h2 className="font-display text-2xl">Watches</h2>
@@ -187,7 +185,10 @@ export function WatchesView() {
               />
             </label>
             <label className="text-sm text-mute">
-              Max price
+              <span className="inline-flex items-center">
+                Max price
+                <FieldTip text="Highest eBay listing price to search. Shipping is not included, so the all-in total can still be higher." />
+              </span>
               <input
                 type="number"
                 value={form.max_price ?? ""}
@@ -202,13 +203,19 @@ export function WatchesView() {
             </label>
           </div>
           <label className="mt-4 block text-sm text-mute">
-            Alert if live total is at or under this % of median
-            <input
-              type="number"
-              value={form.alert_below_pct}
-              onChange={(event) => setForm({ ...form, alert_below_pct: Number(event.target.value) })}
-              className="mt-2 w-full rounded-lg border border-line bg-bg px-3 py-2 text-ink"
-            />
+            <span className="inline-flex items-center">
+              Alert at
+              <FieldTip text="Alert when price + shipping is this percent of the 130point sold median or less. 100 means at or under median. 80 means 20% below median." />
+            </span>
+            <span className="relative mt-2 block">
+              <input
+                type="number"
+                value={form.alert_below_pct}
+                onChange={(event) => setForm({ ...form, alert_below_pct: Number(event.target.value) })}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 pr-8 text-ink"
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-mute">%</span>
+            </span>
           </label>
           <div className="mt-4 flex gap-3 text-sm">
             <label className="flex items-center gap-2 text-mute">
