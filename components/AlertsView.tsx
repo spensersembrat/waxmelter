@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
+import { Point130Open } from "@/components/Point130Open";
 import { money, relativeTime, scanCountdown, timeLeft } from "@/lib/format";
+import { queryFromWatch } from "@/lib/match";
 import type { Alert, Watch } from "@/lib/types";
 
 type Filter = "all" | "unread" | "bin" | "auction";
@@ -174,9 +176,10 @@ export function AlertsView() {
                     <a href={alert.ebay_url} target="_blank" rel="noreferrer" className="text-wax">
                       eBay
                     </a>
-                    <a href={alert.point130_url} target="_blank" rel="noreferrer" className="text-mute">
-                      130point
-                    </a>
+                    <Point130Open
+                      compact
+                      query={queryFromWatch(watches.find((watch) => watch.id === alert.watch_id) ?? { must_include: [], year: null })}
+                    />
                     <button type="button" onClick={() => void toggleSeen(alert)} className="text-mute">
                       {alert.seen ? "Mark unread" : "Mark seen"}
                     </button>

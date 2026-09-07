@@ -28,6 +28,13 @@ export function titleMatches(
   return true;
 }
 
-export function point130SearchUrl(query: string): string {
-  return `https://130point.com/sales/?search=${encodeURIComponent(query)}`;
+export const POINT130_SALES_URL = "https://130point.com/sales/";
+
+export function point130SearchUrl(_query: string): string {
+  return POINT130_SALES_URL;
+}
+
+export function isSampleComps(sourceUrl: string | null | undefined): boolean {
+  if (!sourceUrl) return false;
+  return sourceUrl === "sample" || sourceUrl.includes("?search=") || sourceUrl.includes("?q=");
 }

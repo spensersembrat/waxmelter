@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { MOCK_ALERTS, MOCK_WATCHES } from "./mock";
-import { queryFromWatch, point130SearchUrl } from "./match";
+import { queryFromWatch } from "./match";
 import { fetchPoint130Comps } from "./point130";
 import { hasSupabase, supabaseAdmin } from "./supabase";
 import type { Alert, Watch, WatchComps, WatchInput } from "./types";
@@ -175,24 +175,12 @@ export async function getWatchComps(watchId: string): Promise<WatchComps | null>
 
 export async function listWatchCompRows(): Promise<Array<{ watch: Watch; comps: WatchComps | null }>> {
   const watches = await listWatches();
-  const rows = await Promise.all(
-    watches.map(async (watch) => {
-      let comps = await getWatchComps(watch.id);
-      if (!comps && (watch.last_median != null || queryFromWatch(watch))) {
-        comps = {
-          watch_id: watch.id,
-          median: watch.last_median != null ? Number(watch.last_median) : null,
-          sale_count: Number(watch.last_comp_count ?? 0),
-          samples: [],
-          source_url: point130SearchUrl(queryFromWatch(watch)),
-          fetched_at: watch.last_scanned_at ?? new Date().toISOString(),
-        };
-        if (watch.last_median != null) await upsertWatchComps(comps);
-      }
-      return { watch, comps };
-    }),
+  return Promise.all(
+    watches.map(async (watch) => ({
+      watch,
+      comps: await getWatchComps(watch.id),
+    })),
   );
-  return rows;
 }
 
 export async function refreshWatchComps(watchId: string): Promise<{
@@ -260,7 +248,7 @@ export async function seedMockData(): Promise<{ watches: number; alerts: number 
             price: alert.live_total,
             soldAt: null,
           })),
-          source_url: point130SearchUrl(queryFromWatch(watch)),
+          source_url: "sample",
           fetched_at: watch.last_scanned_at ?? new Date().toISOString(),
         } satisfies WatchComps,
       ]),
@@ -316,7 +304,7 @@ export async function seedMockData(): Promise<{ watches: number; alerts: number 
         price: alert.live_total,
         soldAt: null,
       })),
-      source_url: point130SearchUrl(queryFromWatch(watch)),
+      source_url: "sample",
       fetched_at: watch.last_scanned_at ?? new Date().toISOString(),
     });
   }

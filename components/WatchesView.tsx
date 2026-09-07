@@ -118,7 +118,7 @@ export function WatchesView() {
                       {queryFromWatch(watch) || "No query yet"}
                     </p>
                     <p className="mt-2 text-xs text-mute">
-                      130point {money(watch.last_median)} · {watch.last_comp_count ?? 0} sales · fetched{" "}
+                      Median {money(watch.last_median)} · {watch.last_comp_count ?? 0} sales · fetched{" "}
                       {relativeTime(watch.last_scanned_at)} · {watch.hit_count} hits
                     </p>
                   </div>

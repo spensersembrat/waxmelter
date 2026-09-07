@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { queryFromWatch } from "@/lib/match";
+import { Point130Open } from "@/components/Point130Open";
+import { queryFromWatch, isSampleComps } from "@/lib/match";
 import { money, relativeTime } from "@/lib/format";
 import type { Watch, WatchComps } from "@/lib/types";
 
@@ -46,7 +47,7 @@ export function CompsView() {
       return;
     }
     if (json.status === "unavailable") {
-      setMessage("130point blocked the request or returned no usable sold prices.");
+      setMessage("This server cannot read 130point (Cloudflare). Open the sales page while signed in and paste the query.");
     }
     await load();
   }
@@ -56,7 +57,9 @@ export function CompsView() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="font-display text-2xl">130point</h2>
-          <p className="mt-1 text-sm text-mute">Sold comps used as the median for each watch.</p>
+          <p className="mt-1 text-sm text-mute">
+            Live solds have to be read on 130point in your browser. Fill mock data is sample numbers, not their site.
+          </p>
         </div>
       </div>
       {message ? <p className="mt-3 text-sm text-mute">{message}</p> : null}
@@ -64,61 +67,63 @@ export function CompsView() {
       {rows.length === 0 ? (
         <div className="mt-10 rounded-2xl border border-dashed border-line px-6 py-16 text-center">
           <p className="font-display text-xl">No watches</p>
-          <p className="mt-2 text-sm text-mute">Add a watch first, then fetch comps here.</p>
+          <p className="mt-2 text-sm text-mute">Add a watch first, then open 130point with its query.</p>
         </div>
       ) : (
         <ul className="mt-6 space-y-4">
-          {rows.map(({ watch, comps }) => (
-            <li key={watch.id} className="rounded-2xl border border-line bg-panel p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-ink">{watch.name}</p>
-                  <p className="mt-1 text-sm text-mute">{queryFromWatch(watch) || "No query"}</p>
+          {rows.map(({ watch, comps }) => {
+            const sample = isSampleComps(comps?.source_url);
+            const query = queryFromWatch(watch);
+            return (
+              <li key={watch.id} className="rounded-2xl border border-line bg-panel p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-ink">{watch.name}</p>
+                    <p className="mt-1 text-sm text-mute">{query || "No query"}</p>
+                    {sample ? (
+                      <p className="mt-2 text-xs text-warn">Sample numbers — not from 130point</p>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void fetchComps(watch.id)}
+                    disabled={fetchingId === watch.id}
+                    className="rounded-lg border border-line px-3 py-2 text-sm text-ink disabled:opacity-50"
+                  >
+                    {fetchingId === watch.id ? "Fetching…" : "Try server fetch"}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void fetchComps(watch.id)}
-                  disabled={fetchingId === watch.id}
-                  className="rounded-lg border border-line px-3 py-2 text-sm text-ink disabled:opacity-50"
-                >
-                  {fetchingId === watch.id ? "Fetching…" : "Fetch comps"}
-                </button>
-              </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <Stat label="Median" value={money(comps?.median ?? watch.last_median)} />
-                <Stat label="Sales used" value={String(comps?.sale_count ?? watch.last_comp_count ?? 0)} />
-                <Stat
-                  label="Fetched"
-                  value={relativeTime(comps?.fetched_at ?? watch.last_scanned_at)}
-                />
-              </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <Stat label="Median" value={sample ? "—" : money(comps?.median)} />
+                  <Stat label="Sales used" value={sample ? "—" : String(comps?.sale_count ?? 0)} />
+                  <Stat
+                    label="Fetched"
+                    value={sample ? "Not from 130point" : relativeTime(comps?.fetched_at)}
+                  />
+                </div>
 
-              {(comps?.source_url || queryFromWatch(watch)) ? (
-                <a
-                  href={comps?.source_url || `https://130point.com/sales/?search=${encodeURIComponent(queryFromWatch(watch))}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-3 inline-block text-sm text-wax"
-                >
-                  Open on 130point
-                </a>
-              ) : null}
+                <Point130Open query={query} />
 
-              {comps?.samples?.length ? (
-                <ul className="mt-4 divide-y divide-line overflow-hidden rounded-xl border border-line">
-                  {comps.samples.map((sample, index) => (
-                    <li key={`${sample.title}-${index}`} className="flex items-start justify-between gap-4 px-3 py-2 text-sm">
-                      <span className="text-ink">{sample.title}</span>
-                      <span className="shrink-0 tabular-nums text-mute">{money(sample.price)}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-4 text-sm text-mute">No sold samples stored yet.</p>
-              )}
-            </li>
-          ))}
+                {!sample && comps?.samples?.length ? (
+                  <ul className="mt-4 divide-y divide-line overflow-hidden rounded-xl border border-line">
+                    {comps.samples.map((row, index) => (
+                      <li key={`${row.title}-${index}`} className="flex items-start justify-between gap-4 px-3 py-2 text-sm">
+                        <span className="text-ink">{row.title}</span>
+                        <span className="shrink-0 tabular-nums text-mute">{money(row.price)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-4 text-sm text-mute">
+                    {sample
+                      ? "Use Open 130point to see real solds."
+                      : "No sold samples stored yet."}
+                  </p>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </AppShell>
