@@ -31,9 +31,7 @@ export default function LoginForm() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6">
-      <p className="font-display text-sm tracking-[0.22em] text-wax uppercase">Wax Melter</p>
-      <h1 className="mt-3 font-display text-4xl leading-tight text-ink">Open the desk.</h1>
-      <p className="mt-3 text-mute">Private watchlist for underpriced cards. One password. No accounts.</p>
+      <h1 className="font-display text-sm tracking-[0.22em] text-wax uppercase">Wax Melter</h1>
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
         <label className="block text-sm text-mute">
           Site password

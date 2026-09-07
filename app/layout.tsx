@@ -14,7 +14,7 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   title: "Wax Melter",
-  description: "Find underpriced sports cards on eBay.",
+  description: "Wax Melter",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

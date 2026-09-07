@@ -127,8 +127,8 @@ export function AlertsView() {
 
       {visible.length === 0 ? (
         <div className="mt-10 rounded-2xl border border-dashed border-line px-6 py-16 text-center">
-          <p className="font-display text-xl">No under-comp hits.</p>
-          <p className="mt-2 text-sm text-mute">Add a watch and we’ll search eBay once an hour.</p>
+          <p className="font-display text-xl">No alerts</p>
+          <p className="mt-2 text-sm text-mute">Add a watch to start scanning eBay.</p>
           <Link href="/watches" className="mt-5 inline-block rounded-lg bg-wax px-4 py-2 text-sm text-bg">
             Add a watch
           </Link>

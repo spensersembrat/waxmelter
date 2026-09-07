@@ -24,10 +24,7 @@ export function AppShell({
   return (
     <div className="mx-auto min-h-screen max-w-6xl px-5 pb-16 pt-6">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line pb-5">
-        <div>
-          <p className="font-display text-xs tracking-[0.28em] text-wax uppercase">Sports card desk</p>
-          <h1 className="font-display text-3xl text-ink">Wax Melter</h1>
-        </div>
+        <h1 className="font-display text-3xl text-ink">Wax Melter</h1>
         <nav className="flex items-center gap-2">
           <NavLink href="/alerts" active={pathname.startsWith("/alerts")}>
             Alerts
@@ -40,14 +37,13 @@ export function AppShell({
             onClick={logout}
             className="rounded-full border border-line px-3 py-1.5 text-sm text-mute hover:text-ink"
           >
-            Lock
+            Log out
           </button>
         </nav>
       </header>
       <div className="mt-3 flex flex-wrap gap-2 text-xs text-mute">
         <StatusDot ok={database} label={database ? "Supabase" : "Mock data"} />
         <StatusDot ok={ebay} label={ebay ? "eBay connected" : "eBay pending"} />
-        <span>Hourly scan · comps from 130point</span>
       </div>
       <div className="mt-8">{children}</div>
     </div>

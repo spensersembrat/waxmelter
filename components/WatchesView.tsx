@@ -109,9 +109,7 @@ export function WatchesView() {
       <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
         <section>
           <h2 className="font-display text-2xl">Watches</h2>
-          <p className="mt-1 text-sm text-mute">
-            Each watch is one eBay search. Words must appear in the title.
-          </p>
+          <p className="mt-1 text-sm text-mute">Title keywords for one eBay search.</p>
           <ul className="mt-6 space-y-3">
             {watches.map((watch) => (
               <li key={watch.id} className="rounded-2xl border border-line bg-panel p-4">
