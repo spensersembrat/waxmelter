@@ -26,9 +26,10 @@ export function timeLeft(endsAt: string | null): string {
   return `${minutes}m`;
 }
 
-export function relativeTime(iso: string | null): string {
-  if (!iso) return "Never";
+export function relativeTime(iso: string | null | undefined): string {
+  if (!iso) return "Not yet";
   const diff = Date.now() - new Date(iso).getTime();
+  if (Number.isNaN(diff)) return "Not yet";
   const minutes = Math.floor(diff / 60_000);
   if (minutes < 1) return "Just now";
   if (minutes < 60) return `${minutes}m ago`;

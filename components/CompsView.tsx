@@ -86,14 +86,17 @@ export function CompsView() {
               </div>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <Stat label="Median" value={money(comps?.median)} />
-                <Stat label="Sales used" value={String(comps?.sale_count ?? 0)} />
-                <Stat label="Fetched" value={relativeTime(comps?.fetched_at ?? null)} />
+                <Stat label="Median" value={money(comps?.median ?? watch.last_median)} />
+                <Stat label="Sales used" value={String(comps?.sale_count ?? watch.last_comp_count ?? 0)} />
+                <Stat
+                  label="Fetched"
+                  value={relativeTime(comps?.fetched_at ?? watch.last_scanned_at)}
+                />
               </div>
 
-              {comps?.source_url ? (
+              {(comps?.source_url || queryFromWatch(watch)) ? (
                 <a
-                  href={comps.source_url}
+                  href={comps?.source_url || `https://130point.com/sales/?search=${encodeURIComponent(queryFromWatch(watch))}`}
                   target="_blank"
                   rel="noreferrer"
                   className="mt-3 inline-block text-sm text-wax"

@@ -176,10 +176,21 @@ export async function getWatchComps(watchId: string): Promise<WatchComps | null>
 export async function listWatchCompRows(): Promise<Array<{ watch: Watch; comps: WatchComps | null }>> {
   const watches = await listWatches();
   const rows = await Promise.all(
-    watches.map(async (watch) => ({
-      watch,
-      comps: await getWatchComps(watch.id),
-    })),
+    watches.map(async (watch) => {
+      let comps = await getWatchComps(watch.id);
+      if (!comps && (watch.last_median != null || queryFromWatch(watch))) {
+        comps = {
+          watch_id: watch.id,
+          median: watch.last_median != null ? Number(watch.last_median) : null,
+          sale_count: Number(watch.last_comp_count ?? 0),
+          samples: [],
+          source_url: point130SearchUrl(queryFromWatch(watch)),
+          fetched_at: watch.last_scanned_at ?? new Date().toISOString(),
+        };
+        if (watch.last_median != null) await upsertWatchComps(comps);
+      }
+      return { watch, comps };
+    }),
   );
   return rows;
 }
@@ -266,6 +277,11 @@ export async function seedMockData(): Promise<{ watches: number; alerts: number 
     const found = existing.find((row) => row.name === watch.name);
     if (found) {
       idMap.set(watch.id, found.id);
+      await updateWatch(found.id, {
+        last_median: watch.last_median,
+        last_comp_count: watch.last_comp_count,
+        last_scanned_at: watch.last_scanned_at,
+      });
       continue;
     }
 
@@ -291,8 +307,6 @@ export async function seedMockData(): Promise<{ watches: number; alerts: number 
   for (const watch of MOCK_WATCHES) {
     const watchId = idMap.get(watch.id);
     if (!watchId) continue;
-    const existingComps = await getWatchComps(watchId);
-    if (existingComps) continue;
     await upsertWatchComps({
       watch_id: watchId,
       median: watch.last_median,
