@@ -183,5 +183,3 @@ export async function upsertWatchComps(comps: WatchComps): Promise<void> {
 export async function usingDatabase(): Promise<boolean> {
   return hasSupabase();
 }
-
-export type { CompSample };

@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   const auth = request.headers.get("authorization");
   const cronOk = Boolean(secret && auth === `Bearer ${secret}`);
   const jar = await cookies();
-  const userOk = isValidSession(jar.get(sessionCookieName())?.value);
+  const userOk = await isValidSession(jar.get(sessionCookieName())?.value);
 
   if (!cronOk && !userOk) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

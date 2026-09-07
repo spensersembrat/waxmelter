@@ -97,7 +97,6 @@ export function WatchesView() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        id: watch.id,
         ...watch,
         enabled: !watch.enabled,
       }),

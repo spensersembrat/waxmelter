@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isValidSession, sessionCookieName } from "@/lib/auth";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname.startsWith("/api/scan")) {
@@ -18,7 +18,7 @@ export function middleware(request: NextRequest) {
   }
 
   const token = request.cookies.get(sessionCookieName())?.value;
-  if (isValidSession(token)) return NextResponse.next();
+  if (await isValidSession(token)) return NextResponse.next();
 
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
