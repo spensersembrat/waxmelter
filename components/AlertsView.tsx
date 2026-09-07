@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
-import { money, relativeTime, timeLeft } from "@/lib/format";
+import { money, relativeTime, scanCountdown, timeLeft } from "@/lib/format";
 import type { Alert, Watch } from "@/lib/types";
 
 type Filter = "all" | "unread" | "bin" | "auction";
@@ -13,9 +13,9 @@ export function AlertsView() {
   const [watches, setWatches] = useState<Watch[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [watchId, setWatchId] = useState("all");
-  const [scanning, setScanning] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [scanMessage, setScanMessage] = useState("");
+  const [nextScan, setNextScan] = useState(() => scanCountdown());
 
   async function load() {
     const [alertsRes, watchesRes] = await Promise.all([
@@ -30,6 +30,13 @@ export function AlertsView() {
 
   useEffect(() => {
     void load();
+  }, []);
+
+  useEffect(() => {
+    const tick = () => setNextScan(scanCountdown());
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
   }, []);
 
   const visible = useMemo(() => {
@@ -48,28 +55,6 @@ export function AlertsView() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: alert.id, seen: !alert.seen }),
     });
-    await load();
-  }
-
-  async function scanNow() {
-    setScanning(true);
-    setScanMessage("");
-    const response = await fetch("/api/scan", { method: "POST" });
-    const json = (await response.json()) as {
-      newAlerts?: number;
-      errors?: string[];
-      ebayReady?: boolean;
-    };
-    setScanning(false);
-    if (!response.ok) {
-      setScanMessage("Scan failed.");
-      return;
-    }
-    if (json.ebayReady === false) {
-      setScanMessage(json.errors?.[0] ?? "eBay is not connected yet.");
-    } else {
-      setScanMessage(`Scan finished. ${json.newAlerts ?? 0} new alerts.`);
-    }
     await load();
   }
 
@@ -101,7 +86,8 @@ export function AlertsView() {
             {unread} unread · live total vs 130point median
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-mute">Next scan in {nextScan}</p>
           <button
             type="button"
             onClick={() => void fillMockData()}
@@ -109,14 +95,6 @@ export function AlertsView() {
             className="rounded-lg border border-line px-3 py-2 text-sm text-ink disabled:opacity-50"
           >
             {seeding ? "Loading…" : "Fill mock data"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void scanNow()}
-            disabled={scanning}
-            className="rounded-lg border border-line px-3 py-2 text-sm text-ink disabled:opacity-50"
-          >
-            {scanning ? "Scanning…" : "Scan now"}
           </button>
         </div>
       </div>

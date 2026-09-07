@@ -36,3 +36,21 @@ export function relativeTime(iso: string | null): string {
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
 }
+
+export function nextHourlyScanAt(from = Date.now()): number {
+  const hourMs = 3_600_000;
+  return Math.floor(from / hourMs) * hourMs + hourMs;
+}
+
+export function scanCountdown(from = Date.now()): string {
+  const remaining = Math.max(0, nextHourlyScanAt(from) - from);
+  const totalSec = Math.floor(remaining / 1000);
+  const minutes = Math.floor(totalSec / 60);
+  const seconds = totalSec % 60;
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ${minutes % 60}m`;
+  }
+  if (minutes >= 1) return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+  return `${seconds}s`;
+}
