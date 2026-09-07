@@ -14,6 +14,7 @@ export function AlertsView() {
   const [filter, setFilter] = useState<Filter>("all");
   const [watchId, setWatchId] = useState("all");
   const [scanning, setScanning] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const [scanMessage, setScanMessage] = useState("");
 
   async function load() {
@@ -72,6 +73,23 @@ export function AlertsView() {
     await load();
   }
 
+  async function fillMockData() {
+    setSeeding(true);
+    setScanMessage("");
+    const response = await fetch("/api/alerts/seed", { method: "POST" });
+    const json = (await response.json()) as { watches?: number; alerts?: number; error?: string };
+    setSeeding(false);
+    if (!response.ok) {
+      setScanMessage(json.error ?? "Could not load sample data.");
+      return;
+    }
+    const added = json.alerts ?? 0;
+    setScanMessage(
+      added > 0 ? `Loaded ${added} sample alert${added === 1 ? "" : "s"}.` : "Sample data is already loaded.",
+    );
+    await load();
+  }
+
   const unread = alerts.filter((alert) => !alert.seen).length;
 
   return (
@@ -83,14 +101,24 @@ export function AlertsView() {
             {unread} unread · live total vs 130point median
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void scanNow()}
-          disabled={scanning}
-          className="rounded-lg border border-line px-3 py-2 text-sm text-ink disabled:opacity-50"
-        >
-          {scanning ? "Scanning…" : "Scan now"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => void fillMockData()}
+            disabled={seeding}
+            className="rounded-lg border border-line px-3 py-2 text-sm text-ink disabled:opacity-50"
+          >
+            {seeding ? "Loading…" : "Fill mock data"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void scanNow()}
+            disabled={scanning}
+            className="rounded-lg border border-line px-3 py-2 text-sm text-ink disabled:opacity-50"
+          >
+            {scanning ? "Scanning…" : "Scan now"}
+          </button>
+        </div>
       </div>
       {scanMessage ? <p className="mt-3 text-sm text-mute">{scanMessage}</p> : null}
 
@@ -124,10 +152,20 @@ export function AlertsView() {
       {visible.length === 0 ? (
         <div className="mt-10 rounded-2xl border border-dashed border-line px-6 py-16 text-center">
           <p className="font-display text-xl">No alerts</p>
-          <p className="mt-2 text-sm text-mute">Add a watch to start scanning eBay.</p>
-          <Link href="/watches" className="mt-5 inline-block rounded-lg bg-wax px-4 py-2 text-sm text-bg">
-            Add a watch
-          </Link>
+          <p className="mt-2 text-sm text-mute">Add a watch to start scanning eBay, or load sample alerts.</p>
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => void fillMockData()}
+              disabled={seeding}
+              className="rounded-lg bg-wax px-4 py-2 text-sm text-bg disabled:opacity-50"
+            >
+              {seeding ? "Loading…" : "Fill mock data"}
+            </button>
+            <Link href="/watches" className="inline-block rounded-lg border border-line px-4 py-2 text-sm text-ink">
+              Add a watch
+            </Link>
+          </div>
         </div>
       ) : (
         <ul className="mt-6 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-panel">

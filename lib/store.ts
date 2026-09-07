@@ -183,3 +183,70 @@ export async function upsertWatchComps(comps: WatchComps): Promise<void> {
 export async function usingDatabase(): Promise<boolean> {
   return hasSupabase();
 }
+
+export async function seedMockData(): Promise<{ watches: number; alerts: number }> {
+  if (!hasSupabase()) {
+    memory.watches = structuredClone(MOCK_WATCHES);
+    memory.alerts = structuredClone(MOCK_ALERTS);
+    memory.comps = new Map();
+    return { watches: MOCK_WATCHES.length, alerts: MOCK_ALERTS.length };
+  }
+
+  const existing = await listWatches();
+  const idMap = new Map<string, string>();
+  let watches = 0;
+  let alerts = 0;
+
+  for (const watch of MOCK_WATCHES) {
+    const found = existing.find((row) => row.name === watch.name);
+    if (found) {
+      idMap.set(watch.id, found.id);
+      continue;
+    }
+
+    const created = await createWatch({
+      name: watch.name,
+      must_include: watch.must_include,
+      must_exclude: watch.must_exclude,
+      year: watch.year,
+      max_price: watch.max_price,
+      alert_below_pct: watch.alert_below_pct,
+      buying: watch.buying,
+      enabled: watch.enabled,
+    });
+    await updateWatch(created.id, {
+      last_median: watch.last_median,
+      last_comp_count: watch.last_comp_count,
+      last_scanned_at: watch.last_scanned_at,
+    });
+    idMap.set(watch.id, created.id);
+    watches += 1;
+  }
+
+  for (const alert of MOCK_ALERTS) {
+    const watchId = idMap.get(alert.watch_id);
+    if (!watchId) continue;
+    const created = await insertAlert({
+      watch_id: watchId,
+      item_id: alert.item_id,
+      title: alert.title,
+      image_url: alert.image_url,
+      live_price: alert.live_price,
+      shipping: alert.shipping,
+      live_total: alert.live_total,
+      median: alert.median,
+      comp_count: alert.comp_count,
+      pct_of_median: alert.pct_of_median,
+      buying: alert.buying,
+      ends_at: alert.ends_at,
+      ebay_url: alert.ebay_url,
+      point130_url: alert.point130_url,
+      seller_feedback: alert.seller_feedback,
+      seen: alert.seen,
+      comp_status: alert.comp_status,
+    });
+    if (created) alerts += 1;
+  }
+
+  return { watches, alerts };
+}
