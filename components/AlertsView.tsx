@@ -65,11 +65,11 @@ export function AlertsView() {
       setScanMessage("Turn on a watch first, or pick one in the list.");
       return;
     }
-    const credits = count * 10;
+    const ebayCredits = count * 10;
     const ok = window.confirm(
       count === 1
-        ? `Scan this watch? That uses about ${credits} Parse credits for eBay, plus 1 per new Card Ladder lookup.`
-        : `Scan ${count} watches? That uses about ${credits} Parse credits for eBay (10 per watch), plus 1 per new Card Ladder lookup.`,
+        ? `Scan this watch? That uses about ${ebayCredits} Parse credits for eBay, plus 1 per new Card Ladder lookup.`
+        : `Scan ${count} watches? That uses about ${ebayCredits} Parse credits for eBay (10 per watch), plus 1 per new Card Ladder lookup.`,
     );
     if (!ok) return;
     setScanning(true);
