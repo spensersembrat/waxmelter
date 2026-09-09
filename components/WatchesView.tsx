@@ -14,8 +14,8 @@ const emptyForm: WatchInput = {
   must_exclude: ["lot", "reprint", "digital"],
   year: null,
   max_price: 100,
-  alert_below_pct: 100,
-  buying: ["AUCTION", "FIXED_PRICE"],
+  alert_below_pct: 30,
+  buying: ["FIXED_PRICE"],
   enabled: true,
 };
 
@@ -107,7 +107,7 @@ export function WatchesView() {
       <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
         <section>
           <h2 className="font-display text-2xl">Watches</h2>
-          <p className="mt-1 text-sm text-mute">Title keywords for one eBay search.</p>
+          <p className="mt-1 text-sm text-mute">Title keywords for one eBay Buy It Now search.</p>
           <ul className="mt-6 space-y-3">
             {watches.map((watch) => (
               <li key={watch.id} className="rounded-2xl border border-line bg-panel p-4">
@@ -118,7 +118,7 @@ export function WatchesView() {
                       {queryFromWatch(watch) || "No query yet"}
                     </p>
                     <p className="mt-2 text-xs text-mute">
-                      Median {money(watch.last_median)} · {watch.last_comp_count ?? 0} sales · fetched{" "}
+                      CL {money(watch.last_median)} · {watch.last_comp_count ?? 0} sales · fetched{" "}
                       {relativeTime(watch.last_scanned_at)} · {watch.hit_count} hits
                     </p>
                   </div>
@@ -153,7 +153,7 @@ export function WatchesView() {
               value={form.name}
               onChange={(event) => setForm({ ...form, name: event.target.value })}
               className="mt-2 w-full rounded-lg border border-line bg-bg px-3 py-2 text-ink"
-              placeholder="Mahomes Prizm PSA 10"
+              placeholder="Topps Chrome Update Orange"
             />
           </label>
           <div className="mt-4">
@@ -161,7 +161,7 @@ export function WatchesView() {
               label="Must include"
               values={form.must_include}
               onChange={(must_include) => setForm({ ...form, must_include })}
-              placeholder="Mahomes, Prizm, PSA 10"
+              placeholder="Topps, Chrome, Update, Orange"
             />
           </div>
           <div className="mt-4">
@@ -204,8 +204,8 @@ export function WatchesView() {
           </div>
           <label className="mt-4 block text-sm text-mute">
             <span className="inline-flex items-center">
-              Alert at
-              <FieldTip text="Alert when price + shipping is this percent of the 130point sold median or less. 100 means at or under median. 80 means 20% below median." />
+              CL higher by
+              <FieldTip text="Alert when Card Ladder is this percent higher than the eBay Buy It Now total (price + shipping). 30 means CL is at least 30% above the listing. Example: eBay $100, CL $130." />
             </span>
             <span className="relative mt-2 block">
               <input

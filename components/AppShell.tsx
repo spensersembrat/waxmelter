@@ -7,13 +7,20 @@ import { usePathname, useRouter } from "next/navigation";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [status, setStatus] = useState<{ database: boolean; ebay: boolean } | null>(null);
+  const [status, setStatus] = useState<{
+    database: boolean;
+    ebay: boolean;
+    ebayParse: boolean;
+    cardladder: boolean;
+  } | null>(null);
 
   useEffect(() => {
     void fetch("/api/status")
       .then((response) => response.json())
-      .then((json: { database: boolean; ebay: boolean }) => setStatus(json))
-      .catch(() => setStatus({ database: false, ebay: false }));
+      .then((json: { database: boolean; ebay: boolean; ebayParse: boolean; cardladder: boolean }) =>
+        setStatus(json),
+      )
+      .catch(() => setStatus({ database: false, ebay: false, ebayParse: false, cardladder: false }));
   }, []);
 
   async function logout() {
@@ -34,7 +41,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             Watches
           </NavLink>
           <NavLink href="/comps" active={pathname.startsWith("/comps")}>
-            130point
+            Card Ladder
           </NavLink>
           <button
             type="button"
@@ -49,7 +56,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {status ? (
           <>
             <StatusDot ok={status.database} label={status.database ? "Database" : "Mock data"} />
-            <StatusDot ok={status.ebay} label={status.ebay ? "eBay connected" : "eBay pending"} />
+            <StatusDot
+              ok={status.ebay || status.ebayParse}
+              label={status.ebay ? "eBay connected" : status.ebayParse ? "eBay via Parse" : "eBay pending"}
+            />
+            <StatusDot
+              ok={status.cardladder}
+              label={status.cardladder ? "Card Ladder" : "Card Ladder key missing"}
+            />
           </>
         ) : null}
       </div>

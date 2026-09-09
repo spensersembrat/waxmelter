@@ -1,20 +1,22 @@
 import { randomUUID } from "crypto";
 import { MOCK_ALERTS, MOCK_WATCHES } from "./mock";
 import { queryFromWatch } from "./match";
-import { fetchPoint130Comps } from "./point130";
+import { fetchCardLadderComps, hasCardLadder } from "./cardladder";
 import { hasSupabase, supabaseAdmin } from "./supabase";
-import type { Alert, Watch, WatchComps, WatchInput } from "./types";
+import type { Alert, ClCacheRow, Watch, WatchComps, WatchInput } from "./types";
 
 type MemoryState = {
   watches: Watch[];
   alerts: Alert[];
   comps: Map<string, WatchComps>;
+  clCache: Map<string, ClCacheRow>;
 };
 
 const memory: MemoryState = {
   watches: structuredClone(MOCK_WATCHES),
   alerts: structuredClone(MOCK_ALERTS),
   comps: new Map(),
+  clCache: new Map(),
 };
 
 function watchName(watch: Watch): string {
@@ -87,6 +89,9 @@ export async function deleteWatch(id: string): Promise<void> {
     memory.watches = memory.watches.filter((w) => w.id !== id);
     memory.alerts = memory.alerts.filter((a) => a.watch_id !== id);
     memory.comps.delete(id);
+    for (const key of [...memory.clCache.keys()]) {
+      if (key.startsWith(`${id}:`)) memory.clCache.delete(key);
+    }
     return;
   }
 
@@ -193,7 +198,10 @@ export async function refreshWatchComps(watchId: string): Promise<{
   const query = queryFromWatch(watch);
   if (!query) throw new Error("Watch has no search query.");
 
-  const fresh = await fetchPoint130Comps(watch, query);
+  if (!hasCardLadder()) {
+    throw new Error("PARSE_API_KEY is not set. Add your parse.bot key, then fetch again.");
+  }
+  const fresh = await fetchCardLadderComps(watch, query, { includeSales: true });
   const comps: WatchComps = {
     watch_id: watch.id,
     median: fresh.median,
@@ -228,6 +236,31 @@ export async function upsertWatchComps(comps: WatchComps): Promise<void> {
   if (error) throw error;
 }
 
+export async function getClCache(queryKey: string): Promise<ClCacheRow | null> {
+  if (!hasSupabase()) return memory.clCache.get(queryKey) ?? null;
+  const { data, error } = await supabaseAdmin().from("cl_cache").select("*").eq("query_key", queryKey).maybeSingle();
+  if (error) {
+    if (error.code === "42P01") return memory.clCache.get(queryKey) ?? null;
+    throw error;
+  }
+  if (!data) return null;
+  const row = data as ClCacheRow;
+  return {
+    ...row,
+    median: row.median == null ? null : Number(row.median),
+    sale_count: Number(row.sale_count ?? 0),
+    samples: Array.isArray(row.samples) ? row.samples : [],
+    status: row.status === "ok" ? "ok" : "unavailable",
+  };
+}
+
+export async function upsertClCache(row: ClCacheRow): Promise<void> {
+  memory.clCache.set(row.query_key, row);
+  if (!hasSupabase()) return;
+  const { error } = await supabaseAdmin().from("cl_cache").upsert(row);
+  if (error && error.code !== "42P01") throw error;
+}
+
 export async function usingDatabase(): Promise<boolean> {
   return hasSupabase();
 }
@@ -236,8 +269,9 @@ export async function seedMockData(): Promise<{ watches: number; alerts: number 
   if (!hasSupabase()) {
     memory.watches = structuredClone(MOCK_WATCHES);
     memory.alerts = structuredClone(MOCK_ALERTS);
+    memory.clCache = new Map();
     memory.comps = new Map(
-      MOCK_WATCHES.map((watch) => [
+      MOCK_WATCHES.filter((watch) => watch.last_median != null).map((watch) => [
         watch.id,
         {
           watch_id: watch.id,
@@ -294,7 +328,7 @@ export async function seedMockData(): Promise<{ watches: number; alerts: number 
 
   for (const watch of MOCK_WATCHES) {
     const watchId = idMap.get(watch.id);
-    if (!watchId) continue;
+    if (!watchId || watch.last_median == null) continue;
     await upsertWatchComps({
       watch_id: watchId,
       median: watch.last_median,

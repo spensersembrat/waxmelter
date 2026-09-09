@@ -4,6 +4,7 @@ import { isValidSession, sessionCookieName } from "@/lib/auth";
 import { runScan } from "@/lib/scan";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -16,6 +17,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const result = await runScan();
+  let watchId: string | undefined;
+  try {
+    const body = (await request.json()) as { watchId?: string };
+    watchId = typeof body.watchId === "string" && body.watchId ? body.watchId : undefined;
+  } catch {
+    watchId = undefined;
+  }
+
+  const result = await runScan({
+    parseEbay: userOk && !cronOk,
+    watchId: cronOk ? undefined : watchId,
+  });
   return NextResponse.json(result);
 }

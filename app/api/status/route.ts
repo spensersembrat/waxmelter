@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { usingDatabase } from "@/lib/store";
-import { hasEbay } from "@/lib/ebay";
+import { hasOfficialEbay } from "@/lib/ebay";
+import { hasCardLadder } from "@/lib/cardladder";
+import { hasParseEbay } from "@/lib/parse-ebay";
 
 export async function GET() {
   return NextResponse.json({
     database: await usingDatabase(),
-    ebay: hasEbay(),
+    ebay: hasOfficialEbay(),
+    ebayParse: hasParseEbay(),
+    cardladder: hasCardLadder(),
   });
 }

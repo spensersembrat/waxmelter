@@ -30,7 +30,7 @@ export async function POST(request: Request) {
         ? error.message
         : error && typeof error === "object" && "message" in error
           ? String((error as { message: unknown }).message)
-          : "Could not fetch 130point comps.";
+          : "Could not fetch Card Ladder comps.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

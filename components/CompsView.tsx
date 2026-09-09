@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { Point130Open } from "@/components/Point130Open";
-import { queryFromWatch, isSampleComps } from "@/lib/match";
+import { CardLadderLink } from "@/components/CardLadderLink";
+import { cardLadderSearchUrl, isSampleComps, queryFromWatch } from "@/lib/match";
 import { money, relativeTime } from "@/lib/format";
 import type { Watch, WatchComps } from "@/lib/types";
 
@@ -43,11 +43,11 @@ export function CompsView() {
     const json = (await response.json()) as { error?: string; status?: string };
     setFetchingId(null);
     if (!response.ok) {
-      setMessage(json.error ?? "Could not fetch 130point.");
+      setMessage(json.error ?? "Could not fetch Card Ladder.");
       return;
     }
     if (json.status === "unavailable") {
-      setMessage("This server cannot read 130point (Cloudflare). Open the sales page while signed in and paste the query.");
+      setMessage("No matching Card Ladder card for that watch query.");
     }
     await load();
   }
@@ -56,9 +56,9 @@ export function CompsView() {
     <AppShell>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="font-display text-2xl">130point</h2>
+          <h2 className="font-display text-2xl">Card Ladder</h2>
           <p className="mt-1 text-sm text-mute">
-            Live solds have to be read on 130point in your browser. Fill mock data is sample numbers, not their site.
+            CL value from Parse.bot. Each eBay BIN is compared to that listing's card, not one number for the whole search.
           </p>
         </div>
       </div>
@@ -67,13 +67,14 @@ export function CompsView() {
       {rows.length === 0 ? (
         <div className="mt-10 rounded-2xl border border-dashed border-line px-6 py-16 text-center">
           <p className="font-display text-xl">No watches</p>
-          <p className="mt-2 text-sm text-mute">Add a watch first, then open 130point with its query.</p>
+          <p className="mt-2 text-sm text-mute">Add a watch first, then fetch Card Ladder comps.</p>
         </div>
       ) : (
         <ul className="mt-6 space-y-4">
           {rows.map(({ watch, comps }) => {
             const sample = isSampleComps(comps?.source_url);
             const query = queryFromWatch(watch);
+            const href = !sample && comps?.source_url ? comps.source_url : cardLadderSearchUrl(query);
             return (
               <li key={watch.id} className="rounded-2xl border border-line bg-panel p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -81,7 +82,7 @@ export function CompsView() {
                     <p className="text-ink">{watch.name}</p>
                     <p className="mt-1 text-sm text-mute">{query || "No query"}</p>
                     {sample ? (
-                      <p className="mt-2 text-xs text-warn">Sample numbers — not from 130point</p>
+                      <p className="mt-2 text-xs text-warn">Sample numbers — not from Card Ladder</p>
                     ) : null}
                   </div>
                   <button
@@ -90,20 +91,20 @@ export function CompsView() {
                     disabled={fetchingId === watch.id}
                     className="rounded-lg border border-line px-3 py-2 text-sm text-ink disabled:opacity-50"
                   >
-                    {fetchingId === watch.id ? "Fetching…" : "Try server fetch"}
+                    {fetchingId === watch.id ? "Fetching…" : "Fetch comps"}
                   </button>
                 </div>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  <Stat label="Median" value={sample ? "—" : money(comps?.median)} />
-                  <Stat label="Sales used" value={sample ? "—" : String(comps?.sale_count ?? 0)} />
+                  <Stat label="CL value" value={sample ? "—" : money(comps?.median)} />
+                  <Stat label="Sales" value={sample ? "—" : String(comps?.sale_count ?? 0)} />
                   <Stat
                     label="Fetched"
-                    value={sample ? "Not from 130point" : relativeTime(comps?.fetched_at)}
+                    value={sample ? "Not from Card Ladder" : relativeTime(comps?.fetched_at)}
                   />
                 </div>
 
-                <Point130Open query={query} />
+                <CardLadderLink href={href} />
 
                 {!sample && comps?.samples?.length ? (
                   <ul className="mt-4 divide-y divide-line overflow-hidden rounded-xl border border-line">
@@ -116,9 +117,7 @@ export function CompsView() {
                   </ul>
                 ) : (
                   <p className="mt-4 text-sm text-mute">
-                    {sample
-                      ? "Use Open 130point to see real solds."
-                      : "No sold samples stored yet."}
+                    {sample ? "Fetch comps to pull the Card Ladder value." : "No sold samples stored yet."}
                   </p>
                 )}
               </li>

@@ -13,6 +13,7 @@ export type EbayListing = {
   price: number;
   shipping: number;
   buying: "AUCTION" | "FIXED_PRICE";
+  hasAuction: boolean;
   endsAt: string | null;
   imageUrl: string | null;
   url: string;
@@ -28,8 +29,12 @@ function basicAuth(): string {
   return Buffer.from(`${id}:${secret}`).toString("base64");
 }
 
-export function hasEbay(): boolean {
+export function hasOfficialEbay(): boolean {
   return Boolean(process.env.EBAY_CLIENT_ID && process.env.EBAY_CLIENT_SECRET);
+}
+
+export function hasEbay(): boolean {
+  return hasOfficialEbay();
 }
 
 async function getAppToken(): Promise<string> {
@@ -64,7 +69,7 @@ function parseBuying(options: string[] | undefined): "AUCTION" | "FIXED_PRICE" {
   return "FIXED_PRICE";
 }
 
-export async function searchEbayListings(options: {
+export async function searchOfficialEbayListings(options: {
   query: string;
   maxPrice?: number | null;
   buying: Array<"AUCTION" | "FIXED_PRICE">;
@@ -127,6 +132,7 @@ export async function searchEbayListings(options: {
       price,
       shipping: Number.isFinite(shipping) ? shipping : 0,
       buying: parseBuying(item.buyingOptions),
+      hasAuction: Boolean(item.buyingOptions?.includes("AUCTION")),
       endsAt: item.itemEndDate ?? null,
       imageUrl: item.image?.imageUrl ?? item.thumbnailImages?.[0]?.imageUrl ?? null,
       url: item.itemWebUrl ?? `https://www.ebay.com/itm/${item.itemId}`,

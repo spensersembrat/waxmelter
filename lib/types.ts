@@ -32,6 +32,16 @@ export type WatchComps = {
   fetched_at: string;
 };
 
+export type ClCacheRow = {
+  query_key: string;
+  median: number | null;
+  sale_count: number;
+  samples: CompSample[];
+  source_url: string;
+  fetched_at: string;
+  status: "ok" | "unavailable";
+};
+
 export type Alert = {
   id: string;
   watch_id: string;

@@ -17,7 +17,7 @@ function parseWatch(body: Record<string, unknown>): WatchInput {
     must_exclude: mustExclude,
     year: body.year ? Number(body.year) : null,
     max_price: body.max_price == null || body.max_price === "" ? null : Number(body.max_price),
-    alert_below_pct: body.alert_below_pct == null ? 100 : Number(body.alert_below_pct),
+    alert_below_pct: body.alert_below_pct == null ? 30 : Number(body.alert_below_pct),
     buying: buying.length ? buying : ["AUCTION", "FIXED_PRICE"],
     enabled: body.enabled !== false,
   };

@@ -4,7 +4,10 @@ Use **only** project [`srldhasqgwnbhyxfohlk`](https://supabase.com/dashboard/pro
 
 Do not run this SQL on the poker/events Supabase project.
 
-In the SQL editor, paste and run [`migrations/20260907120000_init.sql`](migrations/20260907120000_init.sql).
+In the SQL editor, paste and run:
+
+1. [`migrations/20260907120000_init.sql`](migrations/20260907120000_init.sql)
+2. [`migrations/20260909160000_cl_cache.sql`](migrations/20260909160000_cl_cache.sql)
 
 Then set on Vercel:
 

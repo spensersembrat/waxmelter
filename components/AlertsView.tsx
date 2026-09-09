@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
-import { Point130Open } from "@/components/Point130Open";
-import { money, relativeTime, scanCountdown, timeLeft } from "@/lib/format";
-import { queryFromWatch } from "@/lib/match";
+import { CardLadderLink } from "@/components/CardLadderLink";
+import { cardLadderSearchUrl, isSampleComps, queryFromWatch } from "@/lib/match";
+import { money, relativeTime, timeLeft } from "@/lib/format";
 import type { Alert, Watch } from "@/lib/types";
 
 type Filter = "all" | "unread" | "bin" | "auction";
@@ -16,8 +16,8 @@ export function AlertsView() {
   const [filter, setFilter] = useState<Filter>("all");
   const [watchId, setWatchId] = useState("all");
   const [seeding, setSeeding] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState("");
-  const [nextScan, setNextScan] = useState(() => scanCountdown());
 
   async function load() {
     const [alertsRes, watchesRes] = await Promise.all([
@@ -32,13 +32,6 @@ export function AlertsView() {
 
   useEffect(() => {
     void load();
-  }, []);
-
-  useEffect(() => {
-    const tick = () => setNextScan(scanCountdown());
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
   }, []);
 
   const visible = useMemo(() => {
@@ -77,6 +70,51 @@ export function AlertsView() {
     await load();
   }
 
+  async function scanNow() {
+    const enabled = watches.filter((watch) => watch.enabled);
+    const count = watchId === "all" ? enabled.length : 1;
+    if (watchId === "all" && count === 0) {
+      setScanMessage("Turn on a watch first, or pick one in the list.");
+      return;
+    }
+    if (watchId === "all" && count > 1) {
+      const ok = window.confirm(
+        `Scan ${count} enabled watches? Parse eBay search is about 10 credits per watch, plus 1 per new Card Ladder lookup.`,
+      );
+      if (!ok) return;
+    }
+    setScanning(true);
+    setScanMessage("");
+    const response = await fetch("/api/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(watchId === "all" ? {} : { watchId }),
+    });
+    const json = (await response.json()) as {
+      newAlerts?: number;
+      listingsChecked?: number;
+      scannedWatches?: number;
+      parseCredits?: { estimated?: number };
+      errors?: string[];
+      error?: string;
+    };
+    setScanning(false);
+    if (!response.ok) {
+      setScanMessage(json.error ?? "Scan failed.");
+      return;
+    }
+    const credits = json.parseCredits?.estimated ?? 0;
+    const extra = json.errors?.length ? ` ${json.errors.join(" ")}` : "";
+    setScanMessage(
+      `Checked ${json.listingsChecked ?? 0} listings across ${json.scannedWatches ?? 0} watch${
+        (json.scannedWatches ?? 0) === 1 ? "" : "es"
+      }. ${json.newAlerts ?? 0} new alert${(json.newAlerts ?? 0) === 1 ? "" : "s"}. About ${credits} Parse credit${
+        credits === 1 ? "" : "s"
+      }.${extra}`,
+    );
+    await load();
+  }
+
   const unread = alerts.filter((alert) => !alert.seen).length;
 
   return (
@@ -85,11 +123,18 @@ export function AlertsView() {
         <div>
           <h2 className="font-display text-2xl">Alerts</h2>
           <p className="mt-1 text-sm text-mute">
-            {unread} unread · live total vs 130point median
+            {unread} unread · BIN vs that listing's Card Ladder value
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm text-mute">Next scan in {nextScan}</p>
+          <button
+            type="button"
+            onClick={() => void scanNow()}
+            disabled={scanning}
+            className="rounded-lg bg-wax px-3 py-2 text-sm text-bg disabled:opacity-50"
+          >
+            {scanning ? "Scanning…" : "Scan now"}
+          </button>
           <button
             type="button"
             onClick={() => void fillMockData()}
@@ -132,15 +177,15 @@ export function AlertsView() {
       {visible.length === 0 ? (
         <div className="mt-10 rounded-2xl border border-dashed border-line px-6 py-16 text-center">
           <p className="font-display text-xl">No alerts</p>
-          <p className="mt-2 text-sm text-mute">Add a watch to start scanning eBay, or load sample alerts.</p>
+          <p className="mt-2 text-sm text-mute">Pick a watch, then Scan now. Parse eBay search is about 10 credits per watch.</p>
           <div className="mt-5 flex flex-wrap justify-center gap-3">
             <button
               type="button"
-              onClick={() => void fillMockData()}
-              disabled={seeding}
+              onClick={() => void scanNow()}
+              disabled={scanning}
               className="rounded-lg bg-wax px-4 py-2 text-sm text-bg disabled:opacity-50"
             >
-              {seeding ? "Loading…" : "Fill mock data"}
+              {scanning ? "Scanning…" : "Scan now"}
             </button>
             <Link href="/watches" className="inline-block rounded-lg border border-line px-4 py-2 text-sm text-ink">
               Add a watch
@@ -150,9 +195,9 @@ export function AlertsView() {
       ) : (
         <ul className="mt-6 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-panel">
           {visible.map((alert) => {
-            const below =
-              alert.median && alert.median > 0
-                ? Math.round(((alert.median - alert.live_total) / alert.median) * 100)
+            const clHigher =
+              alert.median && alert.live_total > 0
+                ? Math.round(((alert.median - alert.live_total) / alert.live_total) * 100)
                 : null;
             return (
               <li key={alert.id} className={`grid gap-4 p-4 md:grid-cols-[88px_1fr_auto] ${alert.seen ? "opacity-60" : ""}`}>
@@ -176,9 +221,20 @@ export function AlertsView() {
                     <a href={alert.ebay_url} target="_blank" rel="noreferrer" className="text-wax">
                       eBay
                     </a>
-                    <Point130Open
+                    <CardLadderLink
                       compact
-                      query={queryFromWatch(watches.find((watch) => watch.id === alert.watch_id) ?? { must_include: [], year: null })}
+                      href={
+                        alert.point130_url && !isSampleComps(alert.point130_url)
+                          ? alert.point130_url
+                          : cardLadderSearchUrl(
+                              queryFromWatch(
+                                watches.find((watch) => watch.id === alert.watch_id) ?? {
+                                  must_include: [],
+                                  year: null,
+                                },
+                              ),
+                            )
+                      }
                     />
                     <button type="button" onClick={() => void toggleSeen(alert)} className="text-mute">
                       {alert.seen ? "Mark unread" : "Mark seen"}
@@ -190,10 +246,10 @@ export function AlertsView() {
                   <p className="text-xs text-mute">
                     {money(alert.live_price)} + {money(alert.shipping)} ship
                   </p>
-                  <p className="mt-2 text-sm text-mute">Median {money(alert.median)}</p>
-                  {below != null ? (
-                    <p className={`mt-1 text-sm ${below >= 0 ? "text-gain" : "text-warn"}`}>
-                      {below >= 0 ? `${below}% under` : `${Math.abs(below)}% over`}
+                  <p className="mt-2 text-sm text-mute">CL {money(alert.median)}</p>
+                  {clHigher != null ? (
+                    <p className={`mt-1 text-sm ${clHigher >= 0 ? "text-gain" : "text-warn"}`}>
+                      {clHigher >= 0 ? `CL ${clHigher}% higher` : `CL ${Math.abs(clHigher)}% lower`}
                     </p>
                   ) : null}
                   <p className="mt-2 text-xs text-mute">{relativeTime(alert.created_at)}</p>
