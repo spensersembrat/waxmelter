@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CardLadderLink } from "@/components/CardLadderLink";
 import { ListLoader } from "@/components/ListLoader";
 import { itemVariants, listVariants, motion } from "@/components/motion";
+import { ScanExplainer } from "@/components/ScanExplainer";
 import { cardLadderSearchUrl, isSampleComps, queryFromWatch } from "@/lib/match";
 import { money, relativeTime, timeLeft } from "@/lib/format";
 import type { Alert, Watch } from "@/lib/types";
@@ -140,6 +141,8 @@ export function AlertsView() {
         </motion.button>
       </div>
       {scanMessage ? <p className="mt-3 text-sm text-mute">{scanMessage}</p> : null}
+
+      <ScanExplainer />
 
       <div className="mt-7 flex flex-wrap items-center gap-2">
         {(["all", "unread", "bin", "auction"] as Filter[]).map((item) => (
