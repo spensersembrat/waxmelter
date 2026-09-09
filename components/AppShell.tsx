@@ -55,7 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="mt-3 flex min-h-6 flex-wrap gap-2 text-xs text-mute">
         {status ? (
           <>
-            <StatusDot ok={status.database} label={status.database ? "Database" : "Mock data"} />
+            <StatusDot ok={status.database} label={status.database ? "Database" : "No database"} />
             <StatusDot
               ok={status.ebay || status.ebayParse}
               label={status.ebay ? "eBay connected" : status.ebayParse ? "eBay via Parse" : "eBay pending"}

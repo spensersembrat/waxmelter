@@ -13,7 +13,7 @@ npm install
 npm run dev
 ```
 
-Without Supabase or eBay keys, the UI runs on mock alerts and watches (`SITE_PASSWORD=devpassword` in `.env.local`).
+Without Supabase, watches and alerts start empty. Set `SITE_PASSWORD` in `.env.local`.
 
 ## Deploy
 
@@ -23,7 +23,7 @@ Without Supabase or eBay keys, the UI runs on mock alerts and watches (`SITE_PAS
 4. After eBay developer approval, add `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` (Production keyset)
 5. GitHub repo secrets: `APP_URL` (Vercel URL), `CRON_SECRET` (same as Vercel)
 
-Apply `supabase/migrations/20260907120000_init.sql` and `supabase/migrations/20260909160000_cl_cache.sql` on project `srldhasqgwnbhyxfohlk` only.
+Apply `supabase/migrations/20260907120000_init.sql`, `supabase/migrations/20260909160000_cl_cache.sql`, and `supabase/migrations/20260909173000_purge_sample.sql` on project `srldhasqgwnbhyxfohlk` only.
 
 ## Pages
 

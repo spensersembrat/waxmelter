@@ -1,5 +1,4 @@
 import { randomUUID } from "crypto";
-import { MOCK_ALERTS, MOCK_WATCHES } from "./mock";
 import { queryFromWatch } from "./match";
 import { fetchCardLadderComps, hasCardLadder } from "./cardladder";
 import { hasSupabase, supabaseAdmin } from "./supabase";
@@ -13,17 +12,50 @@ type MemoryState = {
 };
 
 const memory: MemoryState = {
-  watches: structuredClone(MOCK_WATCHES),
-  alerts: structuredClone(MOCK_ALERTS),
+  watches: [],
+  alerts: [],
   comps: new Map(),
   clCache: new Map(),
 };
+
+const SEEDED_WATCH_NAMES = [
+  "Mahomes Prizm PSA 10",
+  "Elly De La Cruz Chrome 1st PSA 10",
+  "Nabers Optic Rated Rookie PSA 10",
+  "Wembanyama Prizm PSA 10",
+  "Ohtani Topps Chrome PSA 10",
+  "Lamar Downtown PSA 10",
+];
+
+let purgePromise: Promise<void> | null = null;
+
+async function purgeSeededSampleData(): Promise<void> {
+  if (!hasSupabase()) return;
+  if (!purgePromise) {
+    purgePromise = (async () => {
+      const db = supabaseAdmin();
+      const { data: seeded } = await db.from("watches").select("id").in("name", SEEDED_WATCH_NAMES);
+      const ids = (seeded ?? []).map((row) => row.id as string);
+      if (ids.length) {
+        await db.from("alerts").delete().in("watch_id", ids);
+        await db.from("watch_comps").delete().in("watch_id", ids);
+        await db.from("watches").delete().in("id", ids);
+      }
+      await db.from("alerts").delete().eq("point130_url", "sample");
+      await db.from("watch_comps").delete().eq("source_url", "sample");
+    })().catch(() => {
+      purgePromise = Promise.resolve();
+    });
+  }
+  await purgePromise;
+}
 
 function watchName(watch: Watch): string {
   return watch.name;
 }
 
 export async function listWatches(): Promise<Watch[]> {
+  await purgeSeededSampleData();
   if (!hasSupabase()) {
     return [...memory.watches].sort((a, b) => b.created_at.localeCompare(a.created_at));
   }
@@ -103,6 +135,7 @@ export async function deleteWatch(id: string): Promise<void> {
 }
 
 export async function listAlerts(): Promise<Alert[]> {
+  await purgeSeededSampleData();
   if (!hasSupabase()) {
     return [...memory.alerts].sort((a, b) => b.created_at.localeCompare(a.created_at));
   }
@@ -263,110 +296,4 @@ export async function upsertClCache(row: ClCacheRow): Promise<void> {
 
 export async function usingDatabase(): Promise<boolean> {
   return hasSupabase();
-}
-
-export async function seedMockData(): Promise<{ watches: number; alerts: number }> {
-  if (!hasSupabase()) {
-    memory.watches = structuredClone(MOCK_WATCHES);
-    memory.alerts = structuredClone(MOCK_ALERTS);
-    memory.clCache = new Map();
-    memory.comps = new Map(
-      MOCK_WATCHES.filter((watch) => watch.last_median != null).map((watch) => [
-        watch.id,
-        {
-          watch_id: watch.id,
-          median: watch.last_median,
-          sale_count: watch.last_comp_count ?? 0,
-          samples: MOCK_ALERTS.filter((alert) => alert.watch_id === watch.id).map((alert) => ({
-            title: alert.title,
-            price: alert.live_total,
-            soldAt: null,
-          })),
-          source_url: "sample",
-          fetched_at: watch.last_scanned_at ?? new Date().toISOString(),
-        } satisfies WatchComps,
-      ]),
-    );
-    return { watches: MOCK_WATCHES.length, alerts: MOCK_ALERTS.length };
-  }
-
-  const existing = await listWatches();
-  const idMap = new Map<string, string>();
-  let watches = 0;
-  let alerts = 0;
-
-  for (const watch of MOCK_WATCHES) {
-    const found = existing.find((row) => row.name === watch.name);
-    if (found) {
-      idMap.set(watch.id, found.id);
-      await updateWatch(found.id, {
-        last_median: watch.last_median,
-        last_comp_count: watch.last_comp_count,
-        last_scanned_at: watch.last_scanned_at,
-      });
-      continue;
-    }
-
-    const created = await createWatch({
-      name: watch.name,
-      must_include: watch.must_include,
-      must_exclude: watch.must_exclude,
-      year: watch.year,
-      max_price: watch.max_price,
-      alert_below_pct: watch.alert_below_pct,
-      buying: watch.buying,
-      enabled: watch.enabled,
-    });
-    await updateWatch(created.id, {
-      last_median: watch.last_median,
-      last_comp_count: watch.last_comp_count,
-      last_scanned_at: watch.last_scanned_at,
-    });
-    idMap.set(watch.id, created.id);
-    watches += 1;
-  }
-
-  for (const watch of MOCK_WATCHES) {
-    const watchId = idMap.get(watch.id);
-    if (!watchId || watch.last_median == null) continue;
-    await upsertWatchComps({
-      watch_id: watchId,
-      median: watch.last_median,
-      sale_count: watch.last_comp_count ?? 0,
-      samples: MOCK_ALERTS.filter((alert) => alert.watch_id === watch.id).map((alert) => ({
-        title: alert.title,
-        price: alert.live_total,
-        soldAt: null,
-      })),
-      source_url: "sample",
-      fetched_at: watch.last_scanned_at ?? new Date().toISOString(),
-    });
-  }
-
-  for (const alert of MOCK_ALERTS) {
-    const watchId = idMap.get(alert.watch_id);
-    if (!watchId) continue;
-    const created = await insertAlert({
-      watch_id: watchId,
-      item_id: alert.item_id,
-      title: alert.title,
-      image_url: alert.image_url,
-      live_price: alert.live_price,
-      shipping: alert.shipping,
-      live_total: alert.live_total,
-      median: alert.median,
-      comp_count: alert.comp_count,
-      pct_of_median: alert.pct_of_median,
-      buying: alert.buying,
-      ends_at: alert.ends_at,
-      ebay_url: alert.ebay_url,
-      point130_url: alert.point130_url,
-      seller_feedback: alert.seller_feedback,
-      seen: alert.seen,
-      comp_status: alert.comp_status,
-    });
-    if (created) alerts += 1;
-  }
-
-  return { watches, alerts };
 }

@@ -15,7 +15,6 @@ export function AlertsView() {
   const [watches, setWatches] = useState<Watch[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [watchId, setWatchId] = useState("all");
-  const [seeding, setSeeding] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState("");
 
@@ -50,23 +49,6 @@ export function AlertsView() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: alert.id, seen: !alert.seen }),
     });
-    await load();
-  }
-
-  async function fillMockData() {
-    setSeeding(true);
-    setScanMessage("");
-    const response = await fetch("/api/alerts/seed", { method: "POST" });
-    const json = (await response.json()) as { watches?: number; alerts?: number; error?: string };
-    setSeeding(false);
-    if (!response.ok) {
-      setScanMessage(json.error ?? "Could not load sample data.");
-      return;
-    }
-    const added = json.alerts ?? 0;
-    setScanMessage(
-      added > 0 ? `Loaded ${added} sample alert${added === 1 ? "" : "s"}.` : "Sample data is already loaded.",
-    );
     await load();
   }
 
@@ -134,14 +116,6 @@ export function AlertsView() {
             className="rounded-lg bg-wax px-3 py-2 text-sm text-bg disabled:opacity-50"
           >
             {scanning ? "Scanning…" : "Scan now"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void fillMockData()}
-            disabled={seeding}
-            className="rounded-lg border border-line px-3 py-2 text-sm text-ink disabled:opacity-50"
-          >
-            {seeding ? "Loading…" : "Fill mock data"}
           </button>
         </div>
       </div>
