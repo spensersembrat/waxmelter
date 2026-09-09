@@ -45,15 +45,6 @@ async function purgeSeededSampleData(): Promise<void> {
       await db.from("alerts").delete().eq("point130_url", "sample");
       await db.from("watch_comps").delete().eq("source_url", "sample");
 
-      const { data: remaining } = await db.from("watches").select("id,name");
-      const extras = (remaining ?? []).filter((row) => row.name !== DEFAULT_WATCH_PHRASE);
-      if (extras.length) {
-        const extraIds = extras.map((row) => row.id as string);
-        await db.from("alerts").delete().in("watch_id", extraIds);
-        await db.from("watch_comps").delete().in("watch_id", extraIds);
-        await db.from("watches").delete().in("id", extraIds);
-      }
-
       const { data: kept } = await db.from("watches").select("id").eq("name", DEFAULT_WATCH_PHRASE).maybeSingle();
       if (kept?.id) {
         await db.from("watches").update(watchFromPhrase(DEFAULT_WATCH_PHRASE, true)).eq("id", kept.id);
