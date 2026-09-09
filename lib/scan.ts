@@ -15,6 +15,7 @@ import type { ClCacheRow, Watch } from "./types";
 
 const MAX_NEW_CL_LOOKUPS = 6;
 const PARSE_EBAY_CREDITS = 10;
+const SCAN_BUDGET_MS = 240_000;
 
 export type ScanResult = {
   scannedWatches: number;
@@ -61,6 +62,7 @@ export async function runScan(options: { parseEbay?: boolean; watchId?: string }
   const parseCredits = { ebaySearches: 0, clLookups: 0 };
   let listingsChecked = 0;
   let newAlerts = 0;
+  const deadline = Date.now() + SCAN_BUDGET_MS;
 
   const watches = options.watchId
     ? [await getWatch(options.watchId)].filter((watch): watch is Watch => Boolean(watch))
@@ -87,6 +89,10 @@ export async function runScan(options: { parseEbay?: boolean; watchId?: string }
   }
 
   for (const watch of watches) {
+    if (Date.now() > deadline) {
+      errors.push("Stopped early so the server could return a result.");
+      break;
+    }
     const query = queryFromWatch(watch);
     if (!query) continue;
 
@@ -105,38 +111,48 @@ export async function runScan(options: { parseEbay?: boolean; watchId?: string }
       let lastCount: number | null = null;
 
       for (const listing of listings) {
+        if (Date.now() > deadline) {
+          errors.push(`${watch.name}: stopped early so the server could return a result. Some listings were not checked.`);
+          break;
+        }
         if (!titleMatches(listing.title, watch)) continue;
         if (listing.buying !== "FIXED_PRICE" || listing.hasAuction) continue;
 
-        const comps = await compsForListing(watch, listing.title, budget, parseCredits);
-        if (comps?.median == null) continue;
+        try {
+          const comps = await compsForListing(watch, listing.title, budget, parseCredits);
+          if (comps?.median == null || comps.median <= 0) continue;
 
-        lastCl = comps.median;
-        lastCount = comps.sale_count;
+          lastCl = comps.median;
+          lastCount = comps.sale_count;
 
-        const liveTotal = listing.price + listing.shipping;
-        if (!clBeatsEbay(comps.median, liveTotal, ALERT_CL_HIGHER_PCT)) continue;
+          const liveTotal = listing.price + listing.shipping;
+          if (!clBeatsEbay(comps.median, liveTotal, ALERT_CL_HIGHER_PCT)) continue;
 
-        const created = await insertAlert({
-          watch_id: watch.id,
-          item_id: listing.itemId,
-          title: listing.title,
-          image_url: listing.imageUrl,
-          live_price: listing.price,
-          shipping: listing.shipping,
-          live_total: liveTotal,
-          median: comps.median,
-          comp_count: comps.sale_count,
-          pct_of_median: (liveTotal / comps.median) * 100,
-          buying: listing.buying,
-          ends_at: listing.endsAt,
-          ebay_url: listing.url,
-          point130_url: comps.source_url,
-          seller_feedback: listing.sellerFeedback,
-          seen: false,
-          comp_status: comps.status,
-        });
-        if (created) newAlerts += 1;
+          const created = await insertAlert({
+            watch_id: watch.id,
+            item_id: listing.itemId,
+            title: listing.title,
+            image_url: listing.imageUrl,
+            live_price: listing.price,
+            shipping: listing.shipping,
+            live_total: liveTotal,
+            median: comps.median,
+            comp_count: comps.sale_count,
+            pct_of_median: (liveTotal / comps.median) * 100,
+            buying: listing.buying,
+            ends_at: listing.endsAt && !Number.isNaN(Date.parse(listing.endsAt)) ? listing.endsAt : null,
+            ebay_url: listing.url,
+            point130_url: comps.source_url,
+            seller_feedback: listing.sellerFeedback,
+            seen: false,
+            comp_status: comps.status,
+          });
+          if (created) newAlerts += 1;
+        } catch (error) {
+          errors.push(
+            `${watch.name}: ${error instanceof Error ? error.message : "listing failed"}`,
+          );
+        }
       }
 
       await updateWatch(watch.id, {

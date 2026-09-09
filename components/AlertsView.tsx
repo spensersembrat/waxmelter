@@ -80,17 +80,29 @@ export function AlertsView() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(watchId === "all" ? {} : { watchId }),
     });
-    const json = (await response.json()) as {
+    const raw = await response.text();
+    let json: {
       newAlerts?: number;
       listingsChecked?: number;
       scannedWatches?: number;
       parseCredits?: { estimated?: number };
       errors?: string[];
       error?: string;
-    };
+    } = {};
+    if (raw) {
+      try {
+        json = JSON.parse(raw) as typeof json;
+      } catch {
+        json = {};
+      }
+    }
     setScanning(false);
     if (!response.ok) {
-      setScanMessage(json.error ?? "Scan failed.");
+      setScanMessage(
+        json.error ??
+          json.errors?.[0] ??
+          "Scan failed after talking to Parse. Credits may still have been used. Try again in a minute.",
+      );
       return;
     }
     const credits = json.parseCredits?.estimated ?? 0;

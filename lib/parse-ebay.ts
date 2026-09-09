@@ -107,6 +107,7 @@ export async function searchParseEbayListings(options: {
 
   const response = await fetch(url, {
     headers: { "X-API-Key": key, Accept: "application/json" },
+    signal: AbortSignal.timeout(45_000),
   });
   const text = await response.text();
   if (!response.ok) {

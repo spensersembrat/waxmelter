@@ -57,6 +57,7 @@ async function parseGet(endpoint: string, params: Record<string, string>): Promi
 
   const response = await fetch(url, {
     headers: { "X-API-Key": key, Accept: "application/json" },
+    signal: AbortSignal.timeout(20_000),
   });
   const text = await response.text();
   if (!response.ok) {
