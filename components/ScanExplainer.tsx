@@ -1,72 +1,65 @@
 "use client";
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 
 export function ScanExplainer() {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointer(event: MouseEvent) {
+      if (root.current && !root.current.contains(event.target as Node)) setOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   return (
-    <div className="mt-6 rounded-3xl border border-white/10 bg-panel/70 p-5 backdrop-blur-xl">
+    <span ref={root} className="relative ml-2 inline-flex align-middle">
       <button
         type="button"
+        aria-label="How a scan works"
+        aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-center justify-between gap-3 text-left"
+        className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/15 text-xs text-mute transition hover:border-wax hover:text-ink"
       >
-        <h3 className="font-display text-xl tracking-tight">How a scan works</h3>
-        <span className="text-sm text-mute">{open ? "Hide" : "Show"}</span>
+        ?
       </button>
-      <AnimatePresence initial={false}>
+      <AnimatePresence>
         {open ? (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="overflow-hidden"
+          <motion.span
+            role="tooltip"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+            transition={{ duration: 0.18 }}
+            className="absolute left-0 top-full z-30 mt-2 w-[min(22rem,calc(100vw-2.5rem))] rounded-2xl border border-white/10 bg-panel-2 p-3 text-left text-xs font-normal leading-relaxed text-mute shadow-[0_18px_50px_rgba(0,0,0,0.45)]"
           >
-            <div className="mt-4 space-y-4 text-sm leading-relaxed text-mute">
-              <p>
-                Scan looks up live eBay Buy It Now listings for your watch phrase, then checks Card Ladder for each
-                listing. There is not one CL number for the whole search.
-              </p>
-              <ol className="list-decimal space-y-2 pl-5">
-                <li>
-                  eBay search uses the watch phrase. Parse returns page 1 (about 60 listings). Auctions are skipped.
-                  Keep listings whose titles include every word in the phrase.
-                </li>
-                <li>
-                  For each matching BIN, Card Ladder is searched with that listing title. The API returns up to 8
-                  cards. The scan picks the one that matches the title and grade, then uses that card CL value.
-                </li>
-                <li>
-                  Alert if CL is at least 30% higher than eBay price plus shipping. Example: eBay $100 shipped, CL
-                  $130 or more.
-                </li>
-              </ol>
-              <div className="rounded-2xl bg-white/5 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-wax">Example</p>
-                <p className="mt-2 text-ink">Watch: Topps Chrome Update Orange</p>
-                <p className="mt-1">
-                  eBay hit: 2024 Topps Chrome Update Elly De La Cruz Orange /25, $100 + $5 shipping.
-                </p>
-                <p className="mt-1">
-                  Card Ladder search uses that full title, not just the watch phrase. Up to 8 cards come back. One
-                  matching Elly orange is picked at CL $140.
-                </p>
-                <p className="mt-1 text-ink">
-                  $140 is more than 30% above $105, so this listing becomes an alert.
-                </p>
-              </div>
-              <p>
-                Credits: 10 per eBay search, plus 1 per new Card Ladder lookup. Max 6 new CL lookups per watch. Cached
-                CL values from the last 24 hours are free, so a repeat scan of the same titles is often just the eBay
-                10.
-              </p>
-            </div>
-          </motion.div>
+            <p className="text-ink">eBay first, then Card Ladder per listing. Not one CL for the whole search.</p>
+            <p className="mt-2">
+              Search the watch phrase on eBay (about 60 BIN results). For each match, search Card Ladder with that
+              listing title. Up to 8 cards come back; one matching card is picked. Alert if CL is 30% higher than eBay
+              plus shipping.
+            </p>
+            <p className="mt-2">
+              Example: watch Topps Chrome Update Orange. eBay $105 shipped for an Elly orange /25. CL $140 on the
+              matching card. That is an alert.
+            </p>
+            <p className="mt-2">
+              Credits: 10 for eBay, plus 1 per new CL lookup (max 6). Cached CL for 24 hours is free.
+            </p>
+          </motion.span>
         ) : null}
       </AnimatePresence>
-    </div>
+    </span>
   );
 }

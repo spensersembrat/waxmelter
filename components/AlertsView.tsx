@@ -124,7 +124,10 @@ export function AlertsView() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="font-display text-4xl tracking-tight">Alerts</h2>
+          <h2 className="flex items-center font-display text-4xl tracking-tight">
+            Alerts
+            <ScanExplainer />
+          </h2>
           <p className="mt-2 text-sm text-mute">
             {alerts === null ? "Loading alerts" : `${unread} unread · BIN vs Card Ladder for each listing`}
           </p>
@@ -141,8 +144,6 @@ export function AlertsView() {
         </motion.button>
       </div>
       {scanMessage ? <p className="mt-3 text-sm text-mute">{scanMessage}</p> : null}
-
-      <ScanExplainer />
 
       <div className="mt-7 flex flex-wrap items-center gap-2">
         {(["all", "unread", "bin", "auction"] as Filter[]).map((item) => (
