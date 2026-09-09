@@ -7,20 +7,20 @@ import { relativeTime } from "@/lib/format";
 import type { Watch } from "@/lib/types";
 
 export function WatchesView() {
-  const [watches, setWatches] = useState<Watch[]>([]);
+  const [watches, setWatches] = useState<Watch[] | null>(null);
   const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
 
   async function load() {
-    try {
-      const watchesRes = await fetch("/api/watches");
-      const watchesJson = (await watchesRes.json()) as { watches: Watch[] };
-      setWatches(watchesJson.watches);
-    } finally {
-      setLoading(false);
+    const watchesRes = await fetch("/api/watches");
+    const watchesJson = (await watchesRes.json()) as { watches?: Watch[]; error?: string };
+    if (!watchesRes.ok || !Array.isArray(watchesJson.watches)) {
+      setError(watchesJson.error ?? "Could not load watches.");
+      setWatches((current) => current ?? []);
+      return;
     }
+    setWatches(watchesJson.watches);
   }
 
   useEffect(() => {
@@ -67,8 +67,8 @@ export function WatchesView() {
         <p className="mt-2 text-sm text-mute">
           One eBay search phrase. Alerts when Card Ladder is 30% higher than a Buy It Now listing.
         </p>
-        {loading ? (
-          <ListLoader rows={2} />
+        {watches === null ? (
+          <ListLoader rows={2} label="Loading watches" />
         ) : watches.length === 0 ? (
           <p className="mt-8 text-sm text-mute">No watches yet.</p>
         ) : (

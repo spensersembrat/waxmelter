@@ -12,27 +12,27 @@ import type { Alert, Watch } from "@/lib/types";
 type Filter = "all" | "unread" | "bin" | "auction";
 
 export function AlertsView() {
-  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [alerts, setAlerts] = useState<Alert[] | null>(null);
   const [watches, setWatches] = useState<Watch[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [watchId, setWatchId] = useState("all");
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState("");
-  const [loading, setLoading] = useState(true);
 
   async function load() {
-    try {
-      const [alertsRes, watchesRes] = await Promise.all([
-        fetch("/api/alerts"),
-        fetch("/api/watches"),
-      ]);
-      const alertsJson = (await alertsRes.json()) as { alerts: Alert[] };
-      const watchesJson = (await watchesRes.json()) as { watches: Watch[] };
-      setAlerts(alertsJson.alerts);
-      setWatches(watchesJson.watches);
-    } finally {
-      setLoading(false);
+    const [alertsRes, watchesRes] = await Promise.all([
+      fetch("/api/alerts"),
+      fetch("/api/watches"),
+    ]);
+    const alertsJson = (await alertsRes.json()) as { alerts?: Alert[]; error?: string };
+    const watchesJson = (await watchesRes.json()) as { watches?: Watch[] };
+    if (!alertsRes.ok || !Array.isArray(alertsJson.alerts)) {
+      setScanMessage(alertsJson.error ?? "Could not load alerts.");
+      setAlerts((current) => current ?? []);
+      return;
     }
+    setAlerts(alertsJson.alerts);
+    setWatches(Array.isArray(watchesJson.watches) ? watchesJson.watches : []);
   }
 
   useEffect(() => {
@@ -40,6 +40,7 @@ export function AlertsView() {
   }, []);
 
   const visible = useMemo(() => {
+    if (!alerts) return [];
     return alerts.filter((alert) => {
       if (watchId !== "all" && alert.watch_id !== watchId) return false;
       if (filter === "unread") return !alert.seen;
@@ -104,7 +105,7 @@ export function AlertsView() {
     await load();
   }
 
-  const unread = alerts.filter((alert) => !alert.seen).length;
+  const unread = (alerts ?? []).filter((alert) => !alert.seen).length;
 
   return (
     <div>
@@ -112,14 +113,14 @@ export function AlertsView() {
         <div>
           <h2 className="font-display text-4xl tracking-tight">Alerts</h2>
           <p className="mt-2 text-sm text-mute">
-            {loading ? "Loading alerts" : `${unread} unread · BIN vs Card Ladder for each listing`}
+            {alerts === null ? "Loading alerts" : `${unread} unread · BIN vs Card Ladder for each listing`}
           </p>
         </div>
         <motion.button
           type="button"
           onClick={() => void scanNow()}
-          disabled={scanning}
-          whileHover={{ scale: scanning ? 1 : 1.03 }}
+          disabled={scanning || alerts === null}
+          whileHover={{ scale: scanning || alerts === null ? 1 : 1.03 }}
           whileTap={{ scale: 0.97 }}
           className="rounded-full bg-wax px-5 py-2.5 text-sm font-medium text-bg disabled:opacity-50"
         >
@@ -155,8 +156,8 @@ export function AlertsView() {
         </select>
       </div>
 
-      {loading ? (
-        <ListLoader rows={3} />
+      {alerts === null ? (
+        <ListLoader rows={3} label="Loading alerts" />
       ) : visible.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
