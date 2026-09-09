@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
@@ -13,15 +15,23 @@ const tabs = [
 export function BottomNav() {
   const pathname = usePathname();
   const reduce = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
 
-  return (
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
     <motion.nav
-      initial={reduce ? false : { y: 36, opacity: 0, scale: 0.96 }}
+      initial={reduce ? false : { y: 24, opacity: 0, scale: 0.96 }}
       animate={{ y: 0, opacity: 1, scale: 1 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4"
+      style={{ bottom: "max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))" }}
     >
-      <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-white/10 bg-[#10131a]/75 p-1.5 shadow-[0_18px_50px_rgba(240,180,90,0.12),0_24px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
+      <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-white/10 bg-[#10131a]/80 p-1.5 shadow-[0_18px_50px_rgba(240,180,90,0.12),0_24px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
         {tabs.map((tab) => {
           const active = pathname.startsWith(tab.href);
           const Icon = tab.icon;
@@ -47,7 +57,8 @@ export function BottomNav() {
           );
         })}
       </div>
-    </motion.nav>
+    </motion.nav>,
+    document.body,
   );
 }
 

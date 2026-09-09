@@ -3,13 +3,14 @@ import { queryFromWatch } from "./match";
 import { DEFAULT_WATCH_PHRASE, watchFromPhrase } from "./watch";
 import { fetchCardLadderComps, hasCardLadder } from "./cardladder";
 import { hasSupabase, supabaseAdmin } from "./supabase";
-import type { Alert, ClCacheRow, Watch, WatchComps, WatchInput } from "./types";
+import type { Alert, ClCacheRow, ScanRun, Watch, WatchComps, WatchInput } from "./types";
 
 type MemoryState = {
   watches: Watch[];
   alerts: Alert[];
   comps: Map<string, WatchComps>;
   clCache: Map<string, ClCacheRow>;
+  scanRuns: ScanRun[];
 };
 
 const memory: MemoryState = {
@@ -17,6 +18,7 @@ const memory: MemoryState = {
   alerts: [],
   comps: new Map(),
   clCache: new Map(),
+  scanRuns: [],
 };
 
 const SEEDED_WATCH_NAMES = [
@@ -318,6 +320,49 @@ export async function upsertClCache(row: ClCacheRow): Promise<void> {
   if (!hasSupabase()) return;
   const { error } = await supabaseAdmin().from("cl_cache").upsert(row);
   if (error && error.code !== "42P01") throw error;
+}
+
+export async function insertScanRun(
+  input: Omit<ScanRun, "id" | "created_at"> & { id?: string; created_at?: string },
+): Promise<ScanRun> {
+  const row: ScanRun = {
+    id: input.id ?? randomUUID(),
+    created_at: input.created_at ?? new Date().toISOString(),
+    watch_id: input.watch_id,
+    watch_name: input.watch_name,
+    scanned_watches: input.scanned_watches,
+    listings_checked: input.listings_checked,
+    new_alerts: input.new_alerts,
+    ebay_source: input.ebay_source,
+    parse_credits: input.parse_credits,
+    errors: input.errors ?? [],
+    ok: input.ok,
+  };
+  memory.scanRuns.unshift(row);
+  memory.scanRuns = memory.scanRuns.slice(0, 20);
+  if (!hasSupabase()) return row;
+  const { error } = await supabaseAdmin().from("scan_runs").insert(row);
+  if (error && error.code !== "42P01") {
+    // Keep the in-memory row so the UI still shows this scan.
+  }
+  return row;
+}
+
+export async function listScanRuns(limit = 8): Promise<ScanRun[]> {
+  if (!hasSupabase()) return memory.scanRuns.slice(0, limit);
+  const { data, error } = await supabaseAdmin()
+    .from("scan_runs")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) {
+    if (error.code === "42P01") return memory.scanRuns.slice(0, limit);
+    throw error;
+  }
+  return (data ?? []).map((row) => ({
+    ...(row as ScanRun),
+    errors: Array.isArray(row.errors) ? (row.errors as string[]) : [],
+  }));
 }
 
 export async function usingDatabase(): Promise<boolean> {

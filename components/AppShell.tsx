@@ -23,7 +23,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="mx-auto min-h-screen max-w-6xl px-5 pb-36 pt-7 sm:pb-32">
+    <div className="mx-auto min-h-dvh max-w-6xl px-5 pb-36 pt-7">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <motion.p
           initial={{ opacity: 0, y: -8 }}

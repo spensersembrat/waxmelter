@@ -3,14 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CardLadderLink } from "@/components/CardLadderLink";
+import { LastScanPanel } from "@/components/LastScanPanel";
 import { ListLoader } from "@/components/ListLoader";
 import { itemVariants, listVariants, motion } from "@/components/motion";
 import { ScanExplainer } from "@/components/ScanExplainer";
 import { cardLadderSearchUrl, isSampleComps, queryFromWatch } from "@/lib/match";
 import { money, relativeTime, timeLeft } from "@/lib/format";
-import type { Alert, Watch } from "@/lib/types";
+import type { Alert, ScanRun, Watch } from "@/lib/types";
 
-type Filter = "all" | "unread" | "bin" | "auction";
+type Filter = "all" | "unread" | "bin" | "auction" | "scan";
 
 export function AlertsView() {
   const [alerts, setAlerts] = useState<Alert[] | null>(null);
@@ -19,11 +20,13 @@ export function AlertsView() {
   const [watchId, setWatchId] = useState("all");
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState("");
+  const [scans, setScans] = useState<ScanRun[]>([]);
 
   async function load() {
-    const [alertsRes, watchesRes] = await Promise.all([
+    const [alertsRes, watchesRes, scansRes] = await Promise.all([
       fetch("/api/alerts"),
       fetch("/api/watches"),
+      fetch("/api/scans"),
     ]);
     const alertsJson = (await alertsRes.json()) as { alerts?: Alert[]; error?: string };
     const watchesJson = (await watchesRes.json()) as { watches?: Watch[] };
@@ -34,6 +37,10 @@ export function AlertsView() {
     }
     setAlerts(alertsJson.alerts);
     setWatches(Array.isArray(watchesJson.watches) ? watchesJson.watches : []);
+    if (scansRes.ok) {
+      const scansJson = (await scansRes.json()) as { scans?: ScanRun[] };
+      setScans(Array.isArray(scansJson.scans) ? scansJson.scans : []);
+    }
   }
 
   useEffect(() => {
@@ -104,6 +111,8 @@ export function AlertsView() {
           json.errors?.[0] ??
           "Scan failed after talking to Parse. Credits may still have been used. Try again in a minute.",
       );
+      setFilter("scan");
+      await load();
       return;
     }
     const credits = json.parseCredits?.estimated ?? 0;
@@ -115,6 +124,7 @@ export function AlertsView() {
         credits === 1 ? "" : "s"
       }.${extra}`,
     );
+    setFilter("scan");
     await load();
   }
 
@@ -129,7 +139,13 @@ export function AlertsView() {
             <ScanExplainer />
           </h2>
           <p className="mt-2 text-sm text-mute">
-            {alerts === null ? "Loading alerts" : `${unread} unread · BIN vs Card Ladder for each listing`}
+            {alerts === null
+              ? "Loading alerts"
+              : filter === "scan"
+                ? scans[0]
+                  ? `Last scan ${relativeTime(scans[0].created_at)}`
+                  : "Last scan"
+                : `${unread} unread · BIN vs Card Ladder for each listing`}
           </p>
         </div>
         <motion.button
@@ -146,7 +162,7 @@ export function AlertsView() {
       {scanMessage ? <p className="mt-3 text-sm text-mute">{scanMessage}</p> : null}
 
       <div className="mt-7 flex flex-wrap items-center gap-2">
-        {(["all", "unread", "bin", "auction"] as Filter[]).map((item) => (
+        {(["all", "unread", "bin", "auction", "scan"] as Filter[]).map((item) => (
           <button
             key={item}
             type="button"
@@ -155,7 +171,7 @@ export function AlertsView() {
               filter === item ? "bg-white/10 text-ink" : "text-mute hover:text-ink"
             }`}
           >
-            {item === "bin" ? "BIN" : item}
+            {item === "bin" ? "BIN" : item === "scan" ? "Last scan" : item}
           </button>
         ))}
         <select
@@ -174,6 +190,8 @@ export function AlertsView() {
 
       {alerts === null ? (
         <ListLoader rows={3} label="Loading alerts" />
+      ) : filter === "scan" ? (
+        <LastScanPanel scans={scans} />
       ) : visible.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 12 }}

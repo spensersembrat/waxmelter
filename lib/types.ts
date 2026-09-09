@@ -75,3 +75,17 @@ export type WatchInput = {
   buying: BuyingOption[];
   enabled: boolean;
 };
+
+export type ScanRun = {
+  id: string;
+  created_at: string;
+  watch_id: string | null;
+  watch_name: string | null;
+  scanned_watches: number;
+  listings_checked: number;
+  new_alerts: number;
+  ebay_source: string;
+  parse_credits: number;
+  errors: string[];
+  ok: boolean;
+};
