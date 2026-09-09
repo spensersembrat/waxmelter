@@ -27,9 +27,6 @@ async function recordScan(result: ScanResult, watchId: string | undefined, ok: b
   }
 }
 
-export const dynamic = "force-dynamic";
-export const maxDuration = 300;
-
 export async function POST(request: Request) {
   const secret = process.env.CRON_SECRET;
   const auth = request.headers.get("authorization");
