@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { queryFromWatch } from "./match";
+import { DEFAULT_WATCH_PHRASE, watchFromPhrase } from "./watch";
 import { fetchCardLadderComps, hasCardLadder } from "./cardladder";
 import { hasSupabase, supabaseAdmin } from "./supabase";
 import type { Alert, ClCacheRow, Watch, WatchComps, WatchInput } from "./types";
@@ -43,6 +44,28 @@ async function purgeSeededSampleData(): Promise<void> {
       }
       await db.from("alerts").delete().eq("point130_url", "sample");
       await db.from("watch_comps").delete().eq("source_url", "sample");
+
+      const { data: remaining } = await db.from("watches").select("id,name");
+      const extras = (remaining ?? []).filter((row) => row.name !== DEFAULT_WATCH_PHRASE);
+      if (extras.length) {
+        const extraIds = extras.map((row) => row.id as string);
+        await db.from("alerts").delete().in("watch_id", extraIds);
+        await db.from("watch_comps").delete().in("watch_id", extraIds);
+        await db.from("watches").delete().in("id", extraIds);
+      }
+
+      const { data: kept } = await db.from("watches").select("id").eq("name", DEFAULT_WATCH_PHRASE).maybeSingle();
+      if (kept?.id) {
+        await db.from("watches").update(watchFromPhrase(DEFAULT_WATCH_PHRASE, true)).eq("id", kept.id);
+      } else {
+        await db.from("watches").insert({
+          ...watchFromPhrase(DEFAULT_WATCH_PHRASE, true),
+          last_median: null,
+          last_comp_count: null,
+          last_scanned_at: null,
+          hit_count: 0,
+        });
+      }
     })().catch(() => {
       purgePromise = Promise.resolve();
     });
@@ -57,6 +80,18 @@ function watchName(watch: Watch): string {
 export async function listWatches(): Promise<Watch[]> {
   await purgeSeededSampleData();
   if (!hasSupabase()) {
+    if (!memory.watches.length) {
+      const row: Watch = {
+        id: randomUUID(),
+        ...watchFromPhrase(DEFAULT_WATCH_PHRASE, true),
+        last_median: null,
+        last_comp_count: null,
+        last_scanned_at: null,
+        hit_count: 0,
+        created_at: new Date().toISOString(),
+      };
+      memory.watches = [row];
+    }
     return [...memory.watches].sort((a, b) => b.created_at.localeCompare(a.created_at));
   }
 

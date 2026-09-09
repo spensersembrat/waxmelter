@@ -1,4 +1,5 @@
 import type { Watch } from "./types";
+import { phraseToTokens } from "./watch";
 
 const STOP = new Set([
   "the",
@@ -56,35 +57,24 @@ function isGradeToken(token: string): boolean {
   return token.length <= 3 && Number.isFinite(asNumber) && asNumber <= 10;
 }
 
-export function queryFromWatch(watch: Pick<Watch, "must_include" | "year">): string {
-  const parts = [...watch.must_include];
-  if (watch.year) parts.unshift(String(watch.year));
-  return parts.join(" ").trim();
+export function queryFromWatch(watch: Pick<Watch, "name" | "must_include">): string {
+  const named = watch.name?.trim();
+  if (named) return named;
+  return (watch.must_include ?? []).join(" ").trim();
 }
 
-export function titleMatches(
-  title: string,
-  watch: Pick<Watch, "must_include" | "must_exclude" | "year">,
-): boolean {
+export function titleMatches(title: string, watch: Pick<Watch, "name" | "must_include">): boolean {
   const haystack = normalize(title);
-  if (watch.year && !haystack.includes(String(watch.year))) return false;
-
-  for (const token of watch.must_include) {
-    if (!haystack.includes(normalize(token))) return false;
-  }
-
-  for (const token of watch.must_exclude) {
-    if (token.trim() && haystack.includes(normalize(token))) return false;
-  }
-
-  return true;
+  const tokens = phraseToTokens(queryFromWatch(watch));
+  if (!tokens.length) return false;
+  return tokens.every((token) => haystack.includes(normalize(token)));
 }
 
 export function cardMatchesListing(
   label: string,
   condition: string | undefined,
   listingTitle: string,
-  watch: Pick<Watch, "must_include" | "must_exclude" | "year">,
+  watch: Pick<Watch, "name" | "must_include">,
 ): boolean {
   if (!titleMatches(label, watch)) return false;
 
@@ -96,10 +86,7 @@ export function cardMatchesListing(
     return false;
   }
 
-  const watchTokens = new Set([
-    ...watch.must_include.flatMap((item) => listingTokens(item)),
-    ...(watch.year ? [String(watch.year)] : []),
-  ]);
+  const watchTokens = new Set(phraseToTokens(queryFromWatch(watch)).flatMap((item) => listingTokens(item)));
   const extra = listingTokens(listingTitle).filter((token) => !watchTokens.has(token) && !isGradeToken(token));
   const nameLike = extra.filter((token) => !/^\d+$/.test(token));
   const needed = nameLike.length ? nameLike : extra;

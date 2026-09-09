@@ -72,18 +72,12 @@ function parseBuying(options: string[] | undefined): "AUCTION" | "FIXED_PRICE" {
 export async function searchOfficialEbayListings(options: {
   query: string;
   maxPrice?: number | null;
-  buying: Array<"AUCTION" | "FIXED_PRICE">;
 }): Promise<EbayListing[]> {
   const token = await getAppToken();
-  const buying = options.buying.length
-    ? options.buying.join("|")
-    : "FIXED_PRICE|AUCTION";
-  const max = options.maxPrice && options.maxPrice > 0 ? options.maxPrice : 100;
-  const filters = [
-    `buyingOptions:{${buying}}`,
-    `price:[10..${max}]`,
-    "priceCurrency:USD",
-  ];
+  const filters = [`buyingOptions:{FIXED_PRICE}`, "priceCurrency:USD"];
+  if (options.maxPrice && options.maxPrice > 0) {
+    filters.splice(1, 0, `price:[0..${options.maxPrice}]`);
+  }
 
   const params = new URLSearchParams({
     q: options.query,

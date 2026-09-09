@@ -1,6 +1,7 @@
 import { hasOfficialEbay, searchOfficialEbayListings } from "./ebay";
 import { hasParseEbay, searchParseEbayListings } from "./parse-ebay";
 import { clBeatsEbay, listingCacheKey, queryFromWatch, titleMatches } from "./match";
+import { ALERT_CL_HIGHER_PCT } from "./watch";
 import { compsAreFresh, fetchCardLadderComps } from "./cardladder";
 import {
   getClCache,
@@ -93,12 +94,9 @@ export async function runScan(options: { parseEbay?: boolean; watchId?: string }
       const listings = official
         ? await searchOfficialEbayListings({
             query,
-            maxPrice: watch.max_price,
-            buying: watch.buying,
           })
         : await searchParseEbayListings({
             query,
-            maxPrice: watch.max_price,
           });
       if (!official) parseCredits.ebaySearches += 1;
       listingsChecked += listings.length;
@@ -108,8 +106,7 @@ export async function runScan(options: { parseEbay?: boolean; watchId?: string }
 
       for (const listing of listings) {
         if (!titleMatches(listing.title, watch)) continue;
-        if (watch.buying.length && !watch.buying.includes(listing.buying)) continue;
-        if (!watch.buying.includes("AUCTION") && listing.hasAuction) continue;
+        if (listing.buying !== "FIXED_PRICE" || listing.hasAuction) continue;
 
         const comps = await compsForListing(watch, listing.title, budget, parseCredits);
         if (comps?.median == null) continue;
@@ -118,7 +115,7 @@ export async function runScan(options: { parseEbay?: boolean; watchId?: string }
         lastCount = comps.sale_count;
 
         const liveTotal = listing.price + listing.shipping;
-        if (!clBeatsEbay(comps.median, liveTotal, watch.alert_below_pct)) continue;
+        if (!clBeatsEbay(comps.median, liveTotal, ALERT_CL_HIGHER_PCT)) continue;
 
         const created = await insertAlert({
           watch_id: watch.id,

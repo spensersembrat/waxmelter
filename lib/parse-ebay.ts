@@ -50,7 +50,7 @@ export function looksLikeAuction(raw: Record<string, unknown>): boolean {
   return /\b(auction|bids?|bidding|current bid)\b/.test(blob);
 }
 
-function listingFromRaw(raw: Record<string, unknown>, maxPrice: number): EbayListing | null {
+function listingFromRaw(raw: Record<string, unknown>, maxPrice: number | null): EbayListing | null {
   const title = String(raw.title ?? raw.name ?? "").trim();
   const itemId = String(raw.item_id ?? raw.itemId ?? raw.id ?? "").trim();
   const url = String(raw.url ?? raw.itemWebUrl ?? raw.link ?? "").trim();
@@ -58,7 +58,7 @@ function listingFromRaw(raw: Record<string, unknown>, maxPrice: number): EbayLis
 
   const price = moneyAmounts(raw.price)[0];
   if (price == null || price <= 0) return null;
-  if (price > maxPrice) return null;
+  if (maxPrice != null && price > maxPrice) return null;
 
   const shippingAmounts = moneyAmounts(raw.shipping);
   const shippingText = String(raw.shipping ?? "").toLowerCase();
@@ -96,7 +96,7 @@ export async function searchParseEbayListings(options: {
   const key = process.env.PARSE_API_KEY;
   if (!key) throw new Error("PARSE_API_KEY is not set. Add it from parse.bot.");
 
-  const max = options.maxPrice && options.maxPrice > 0 ? options.maxPrice : 100;
+  const max = options.maxPrice && options.maxPrice > 0 ? options.maxPrice : null;
   const url = new URL(`${PARSE_EBAY_BASE}/search_listings`);
   url.searchParams.set("query", options.query);
   url.searchParams.set("category_id", CATEGORY_SINGLES);

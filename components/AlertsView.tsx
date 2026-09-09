@@ -203,8 +203,8 @@ export function AlertsView() {
                           : cardLadderSearchUrl(
                               queryFromWatch(
                                 watches.find((watch) => watch.id === alert.watch_id) ?? {
+                                  name: "",
                                   must_include: [],
-                                  year: null,
                                 },
                               ),
                             )
