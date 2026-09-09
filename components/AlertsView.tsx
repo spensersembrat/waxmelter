@@ -123,7 +123,7 @@ export function AlertsView() {
         <div>
           <h2 className="font-display text-2xl">Alerts</h2>
           <p className="mt-1 text-sm text-mute">
-            {unread} unread · BIN vs that listing's Card Ladder value
+            {unread} unread · BIN vs Card Ladder for each listing
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">

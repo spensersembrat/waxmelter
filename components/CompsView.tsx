@@ -58,7 +58,7 @@ export function CompsView() {
         <div>
           <h2 className="font-display text-2xl">Card Ladder</h2>
           <p className="mt-1 text-sm text-mute">
-            CL value from Parse.bot. Each eBay BIN is compared to that listing's card, not one number for the whole search.
+            CL value from Parse.bot. Each eBay BIN is compared to that listing card, not one number for the whole search.
           </p>
         </div>
       </div>
