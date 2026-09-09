@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CardLadderLink } from "@/components/CardLadderLink";
+import { ListLoader } from "@/components/ListLoader";
 import { itemVariants, listVariants, motion } from "@/components/motion";
 import { cardLadderSearchUrl, isSampleComps, queryFromWatch } from "@/lib/match";
 import { money, relativeTime, timeLeft } from "@/lib/format";
@@ -17,16 +18,21 @@ export function AlertsView() {
   const [watchId, setWatchId] = useState("all");
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState("");
+  const [loading, setLoading] = useState(true);
 
   async function load() {
-    const [alertsRes, watchesRes] = await Promise.all([
-      fetch("/api/alerts"),
-      fetch("/api/watches"),
-    ]);
-    const alertsJson = (await alertsRes.json()) as { alerts: Alert[] };
-    const watchesJson = (await watchesRes.json()) as { watches: Watch[] };
-    setAlerts(alertsJson.alerts);
-    setWatches(watchesJson.watches);
+    try {
+      const [alertsRes, watchesRes] = await Promise.all([
+        fetch("/api/alerts"),
+        fetch("/api/watches"),
+      ]);
+      const alertsJson = (await alertsRes.json()) as { alerts: Alert[] };
+      const watchesJson = (await watchesRes.json()) as { watches: Watch[] };
+      setAlerts(alertsJson.alerts);
+      setWatches(watchesJson.watches);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -55,16 +61,17 @@ export function AlertsView() {
   async function scanNow() {
     const enabled = watches.filter((watch) => watch.enabled);
     const count = watchId === "all" ? enabled.length : 1;
-    if (watchId === "all" && count === 0) {
+    if (count === 0) {
       setScanMessage("Turn on a watch first, or pick one in the list.");
       return;
     }
-    if (watchId === "all" && count > 1) {
-      const ok = window.confirm(
-        `Scan ${count} enabled watches? Parse eBay search is about 10 credits per watch, plus 1 per new Card Ladder lookup.`,
-      );
-      if (!ok) return;
-    }
+    const credits = count * 10;
+    const ok = window.confirm(
+      count === 1
+        ? `Scan this watch? That uses about ${credits} Parse credits for eBay, plus 1 per new Card Ladder lookup.`
+        : `Scan ${count} watches? That uses about ${credits} Parse credits for eBay (10 per watch), plus 1 per new Card Ladder lookup.`,
+    );
+    if (!ok) return;
     setScanning(true);
     setScanMessage("");
     const response = await fetch("/api/scan", {
@@ -104,7 +111,9 @@ export function AlertsView() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="font-display text-4xl tracking-tight">Alerts</h2>
-          <p className="mt-2 text-sm text-mute">{unread} unread · BIN vs Card Ladder for each listing</p>
+          <p className="mt-2 text-sm text-mute">
+            {loading ? "Loading alerts" : `${unread} unread · BIN vs Card Ladder for each listing`}
+          </p>
         </div>
         <motion.button
           type="button"
@@ -146,7 +155,9 @@ export function AlertsView() {
         </select>
       </div>
 
-      {visible.length === 0 ? (
+      {loading ? (
+        <ListLoader rows={3} />
+      ) : visible.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { ListLoader } from "@/components/ListLoader";
 import { itemVariants, listVariants, motion } from "@/components/motion";
 import { relativeTime } from "@/lib/format";
 import type { Watch } from "@/lib/types";
@@ -10,11 +11,16 @@ export function WatchesView() {
   const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   async function load() {
-    const watchesRes = await fetch("/api/watches");
-    const watchesJson = (await watchesRes.json()) as { watches: Watch[] };
-    setWatches(watchesJson.watches);
+    try {
+      const watchesRes = await fetch("/api/watches");
+      const watchesJson = (await watchesRes.json()) as { watches: Watch[] };
+      setWatches(watchesJson.watches);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -61,7 +67,9 @@ export function WatchesView() {
         <p className="mt-2 text-sm text-mute">
           One eBay search phrase. Alerts when Card Ladder is 30% higher than a Buy It Now listing.
         </p>
-        {watches.length === 0 ? (
+        {loading ? (
+          <ListLoader rows={2} />
+        ) : watches.length === 0 ? (
           <p className="mt-8 text-sm text-mute">No watches yet.</p>
         ) : (
           <motion.ul variants={listVariants} initial="hidden" animate="show" className="mt-7 space-y-3">

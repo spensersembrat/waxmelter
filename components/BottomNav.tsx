@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
 
 const tabs = [
@@ -12,14 +12,7 @@ const tabs = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  const router = useRouter();
   const reduce = useReducedMotion();
-
-  async function logout() {
-    await fetch("/api/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
-  }
 
   return (
     <motion.nav
@@ -53,14 +46,6 @@ export function BottomNav() {
             </Link>
           );
         })}
-        <button
-          type="button"
-          onClick={() => void logout()}
-          className="relative flex min-w-[4.25rem] flex-col items-center gap-0.5 rounded-full px-4 py-2 text-[11px] font-medium tracking-wide text-mute transition hover:text-ink"
-        >
-          <LogoutIcon />
-          Out
-        </button>
       </div>
     </motion.nav>
   );
@@ -95,15 +80,6 @@ function ChartIcon() {
       <path d="M5 19V10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       <path d="M12 19V5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       <path d="M19 19v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function LogoutIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M10 5H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M13 12h8m0 0-3-3m3 3-3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
