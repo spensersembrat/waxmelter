@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AppShell } from "@/components/AppShell";
 import { CardLadderLink } from "@/components/CardLadderLink";
+import { itemVariants, listVariants, motion } from "@/components/motion";
 import { cardLadderSearchUrl, isSampleComps, queryFromWatch } from "@/lib/match";
 import { money, relativeTime, timeLeft } from "@/lib/format";
 import type { Alert, Watch } from "@/lib/types";
@@ -100,35 +100,33 @@ export function AlertsView() {
   const unread = alerts.filter((alert) => !alert.seen).length;
 
   return (
-    <AppShell>
+    <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="font-display text-2xl">Alerts</h2>
-          <p className="mt-1 text-sm text-mute">
-            {unread} unread · BIN vs Card Ladder for each listing
-          </p>
+          <h2 className="font-display text-4xl tracking-tight">Alerts</h2>
+          <p className="mt-2 text-sm text-mute">{unread} unread · BIN vs Card Ladder for each listing</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void scanNow()}
-            disabled={scanning}
-            className="rounded-lg bg-wax px-3 py-2 text-sm text-bg disabled:opacity-50"
-          >
-            {scanning ? "Scanning…" : "Scan now"}
-          </button>
-        </div>
+        <motion.button
+          type="button"
+          onClick={() => void scanNow()}
+          disabled={scanning}
+          whileHover={{ scale: scanning ? 1 : 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          className="rounded-full bg-wax px-5 py-2.5 text-sm font-medium text-bg disabled:opacity-50"
+        >
+          {scanning ? "Scanning..." : "Scan now"}
+        </motion.button>
       </div>
       {scanMessage ? <p className="mt-3 text-sm text-mute">{scanMessage}</p> : null}
 
-      <div className="mt-6 flex flex-wrap gap-2">
+      <div className="mt-7 flex flex-wrap items-center gap-2">
         {(["all", "unread", "bin", "auction"] as Filter[]).map((item) => (
           <button
             key={item}
             type="button"
             onClick={() => setFilter(item)}
-            className={`rounded-full px-3 py-1 text-sm capitalize ${
-              filter === item ? "bg-panel-2 text-ink" : "text-mute"
+            className={`rounded-full px-3.5 py-1.5 text-sm capitalize transition ${
+              filter === item ? "bg-white/10 text-ink" : "text-mute hover:text-ink"
             }`}
           >
             {item === "bin" ? "BIN" : item}
@@ -137,7 +135,7 @@ export function AlertsView() {
         <select
           value={watchId}
           onChange={(event) => setWatchId(event.target.value)}
-          className="rounded-full border border-line bg-transparent px-3 py-1 text-sm text-ink"
+          className="rounded-full border border-white/10 bg-panel/80 px-3 py-1.5 text-sm text-ink outline-none"
         >
           <option value="all">All watches</option>
           {watches.map((watch) => (
@@ -149,40 +147,55 @@ export function AlertsView() {
       </div>
 
       {visible.length === 0 ? (
-        <div className="mt-10 rounded-2xl border border-dashed border-line px-6 py-16 text-center">
-          <p className="font-display text-xl">No alerts</p>
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-10 rounded-3xl border border-dashed border-white/10 bg-panel/40 px-6 py-16 text-center backdrop-blur-xl"
+        >
+          <p className="font-display text-2xl">No alerts</p>
           <p className="mt-2 text-sm text-mute">Pick a watch, then Scan now. Parse eBay search is about 10 credits per watch.</p>
-          <div className="mt-5 flex flex-wrap justify-center gap-3">
-            <button
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <motion.button
               type="button"
               onClick={() => void scanNow()}
               disabled={scanning}
-              className="rounded-lg bg-wax px-4 py-2 text-sm text-bg disabled:opacity-50"
+              whileTap={{ scale: 0.97 }}
+              className="rounded-full bg-wax px-5 py-2.5 text-sm font-medium text-bg disabled:opacity-50"
             >
-              {scanning ? "Scanning…" : "Scan now"}
-            </button>
-            <Link href="/watches" className="inline-block rounded-lg border border-line px-4 py-2 text-sm text-ink">
+              {scanning ? "Scanning..." : "Scan now"}
+            </motion.button>
+            <Link
+              href="/watches"
+              className="inline-block rounded-full border border-white/10 px-5 py-2.5 text-sm text-ink"
+            >
               Add a watch
             </Link>
           </div>
-        </div>
+        </motion.div>
       ) : (
-        <ul className="mt-6 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-panel">
+        <motion.ul variants={listVariants} initial="hidden" animate="show" className="mt-6 space-y-3">
           {visible.map((alert) => {
             const clHigher =
               alert.median && alert.live_total > 0
                 ? Math.round(((alert.median - alert.live_total) / alert.live_total) * 100)
                 : null;
             return (
-              <li key={alert.id} className={`grid gap-4 p-4 md:grid-cols-[88px_1fr_auto] ${alert.seen ? "opacity-60" : ""}`}>
+              <motion.li
+                key={alert.id}
+                variants={itemVariants}
+                layout
+                className={`grid gap-4 rounded-3xl border border-white/10 bg-panel/70 p-4 backdrop-blur-xl md:grid-cols-[88px_1fr_auto] ${
+                  alert.seen ? "opacity-55" : ""
+                }`}
+              >
                 <CardThumb title={alert.title} imageUrl={alert.image_url} />
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-mute">{alert.watch_name}</p>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-mute">{alert.watch_name}</p>
                   <a
                     href={alert.ebay_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-1 block text-base text-ink hover:text-wax"
+                    className="mt-1 block text-base text-ink transition hover:text-wax"
                   >
                     {alert.title}
                   </a>
@@ -216,7 +229,7 @@ export function AlertsView() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-display text-2xl tabular-nums">{money(alert.live_total)}</p>
+                  <p className="font-display text-3xl tabular-nums tracking-tight">{money(alert.live_total)}</p>
                   <p className="text-xs text-mute">
                     {money(alert.live_price)} + {money(alert.shipping)} ship
                   </p>
@@ -228,12 +241,12 @@ export function AlertsView() {
                   ) : null}
                   <p className="mt-2 text-xs text-mute">{relativeTime(alert.created_at)}</p>
                 </div>
-              </li>
+              </motion.li>
             );
           })}
-        </ul>
+        </motion.ul>
       )}
-    </AppShell>
+    </div>
   );
 }
 
@@ -241,11 +254,11 @@ function CardThumb({ title, imageUrl }: { title: string; imageUrl: string | null
   if (imageUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={imageUrl} alt="" className="h-24 w-[88px] rounded-lg object-cover" />
+      <img src={imageUrl} alt="" className="h-24 w-[88px] rounded-2xl object-cover" />
     );
   }
   return (
-    <div className="flex h-24 w-[88px] items-end rounded-lg bg-panel-2 p-2 text-[10px] leading-tight text-mute">
+    <div className="flex h-24 w-[88px] items-end rounded-2xl bg-panel-2 p-2 text-[10px] leading-tight text-mute">
       {title.slice(0, 28)}
     </div>
   );

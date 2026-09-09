@@ -18,7 +18,7 @@ export function CardLadderLink({
   }
 
   return (
-    <a href={href} target="_blank" rel="noreferrer" className="mt-3 inline-block text-sm text-wax">
+    <a href={href} target="_blank" rel="noreferrer" className="mt-4 inline-block text-sm text-wax">
       Open on Card Ladder
     </a>
   );
